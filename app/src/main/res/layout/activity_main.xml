@@ -55,6 +55,56 @@
             android:fontFamily="monospace"
             android:layout_marginTop="4dp"/>
 
+        <TextView
+            android:id="@+id/tvEcg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📈 ECG: --"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="4dp"/>
+
+        <TextView
+            android:id="@+id/tvAccel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📐 Acel: --"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="4dp"/>
+
+        <TextView
+            android:id="@+id/tvGyro"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔄 Gyro: --"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="4dp"/>
+
+        <TextView
+            android:id="@+id/tvGps"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📍 GPS: --"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="4dp"/>
+
+        <TextView
+            android:id="@+id/tvActivity"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🏃 Estado: --"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="4dp"/>
+
     </LinearLayout>
 
     <!-- Botão stream em baixo -->
