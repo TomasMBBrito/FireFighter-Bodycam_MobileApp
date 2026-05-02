@@ -3,11 +3,13 @@ package com.example.bodycam
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.bodycam.sensors.SensorData
@@ -32,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var eglBase: EglBase
     private lateinit var webRtcManager: WebRTCManager
     private lateinit var sensorSimulator: SensorSimulator
+    private lateinit var mqttManager: MqttManager
 
     private var isStreaming = false
 
@@ -43,6 +46,7 @@ class MainActivity : AppCompatActivity() {
             else Toast.makeText(this, "Permissões necessárias", Toast.LENGTH_SHORT).show()
         }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -75,7 +79,14 @@ class MainActivity : AppCompatActivity() {
         // Sensor Simulator
         sensorSimulator = SensorSimulator { data ->
             runOnUiThread { updateSensorUI(data) }
+            mqttManager.publishTelemetry(data)
         }
+
+        mqttManager = MqttManager(context = this)
+        mqttManager.connect(
+            onSuccess = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
+            onFailure = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } }
+        )
 
         btnStream.setOnClickListener {
             if (!isStreaming) handleStreamStart() else handleStreamStop()
@@ -161,6 +172,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         sensorSimulator.stop()
+        mqttManager.disconnect()
         webRtcManager.release()
         localRenderer.release()
         eglBase.release()
