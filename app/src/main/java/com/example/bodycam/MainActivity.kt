@@ -84,15 +84,14 @@ class MainActivity : AppCompatActivity() {
 
         mqttManager = MqttManager(context = this)
         mqttManager.connect(
-            onSuccess = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
-            onFailure = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } }
+            onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
+            onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
+            onRegistered = { sensorSimulator.start() }  // ← vírgula antes e sem start() separado
         )
 
         btnStream.setOnClickListener {
             if (!isStreaming) handleStreamStart() else handleStreamStop()
         }
-
-        sensorSimulator.start()
 
         if (hasPermissions()) initWebRTC()
         else requestPermissions.launch(

@@ -25,7 +25,7 @@ class MqttManager(
 
     private val telemetryTopic = "$missionId/$firefighterId/telemetry"
 
-    fun connect(onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+    fun connect(onSuccess: () -> Unit, onFailure: (String) -> Unit,onRegistered: () -> Unit) {
         client = MqttClient.builder()
             .useMqttVersion3()
             .identifier(UUID.randomUUID().toString())
@@ -43,20 +43,30 @@ class MqttManager(
                 } else {
                     Log.d("MQTT", "Ligado ao broker")
                     isConnected = true
-                    register()
+                    register { onRegistered() }
                     onSuccess()
                 }
             }
     }
 
-    private fun register() {
+    private fun register(onRegistered: () -> Unit) {
         val payload = JSONObject().apply {
             put("MissionId", missionId)
             put("FirefighterId", firefighterId)
             put("DeviceId", deviceId)
         }.toString()
 
-        publish("firefighter/register", payload, qos = 1)
+        client?.publishWith()
+            ?.topic("firefighter/register")
+            ?.payload(payload.toByteArray())
+            ?.qos(com.hivemq.client.mqtt.datatypes.MqttQos.AT_LEAST_ONCE)
+            ?.send()
+            ?.whenComplete { _, error ->
+                if (error == null) {
+                    Thread.sleep(500) // ← delay para o backend subscrever
+                    onRegistered()
+                }
+            }
         Log.d("MQTT", "Bombeiro registado")
     }
 
