@@ -37,6 +37,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mqttManager: MqttManager
 
     private var isStreaming = false
+    private val firefighterId: String = "b0000001-0000-0000-0000-000000000006"
+    private val missionId: String     = "a0000001-0000-0000-0000-000000000003"
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -71,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         webRtcManager = WebRTCManager(
             context      = this,
             eglBase      = eglBase,
-            whipUrl      = "http://192.168.1.136:8889/bodycam/whip",
+            whipUrl      = "http://192.168.1.136:8889/$missionId/$firefighterId/whip",
             onConnected  = { runOnUiThread { Toast.makeText(this, "Stream ligado!", Toast.LENGTH_SHORT).show() } },
             onDisconnected = { runOnUiThread { handleStreamStopped() } }
         )
