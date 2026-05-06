@@ -14,7 +14,7 @@ import java.util.UUID
 
 class MqttManager(
     private val context: Context,
-    private val brokerHost: String = "192.168.1.136",
+    private val brokerHost: String,
     private val brokerPort: Int    = 1883,
     private val firefighterId: String = "b0000001-0000-0000-0000-000000000006",
     private val missionId: String     = "a0000001-0000-0000-0000-000000000003",

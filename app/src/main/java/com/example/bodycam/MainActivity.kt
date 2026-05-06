@@ -36,6 +36,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sensorSimulator: SensorSimulator
     private lateinit var mqttManager: MqttManager
 
+    private lateinit var locationFinder: LocationFinder
+
     private var isStreaming = false
     private val firefighterId: String = "b0000001-0000-0000-0000-000000000006"
     private val missionId: String     = "a0000001-0000-0000-0000-000000000003"
@@ -44,6 +46,9 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val cameraOk = permissions[Manifest.permission.CAMERA] == true
             val audioOk  = permissions[Manifest.permission.RECORD_AUDIO] == true
+            val locationOk = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+
+            if(locationOk) locationFinder.start()
             if (cameraOk && audioOk) initWebRTC()
             else Toast.makeText(this, "Permissões necessárias", Toast.LENGTH_SHORT).show()
         }
@@ -69,6 +74,9 @@ class MainActivity : AppCompatActivity() {
         localRenderer.init(eglBase.eglBaseContext, null)
         localRenderer.setMirror(false)
 
+        //"http://192.168.1.136:8889/$missionId/$firefighterId/whip"
+
+        //192.168.1.136
         // WebRTC Manager
         webRtcManager = WebRTCManager(
             context      = this,
@@ -78,13 +86,18 @@ class MainActivity : AppCompatActivity() {
             onDisconnected = { runOnUiThread { handleStreamStopped() } }
         )
 
-        // Sensor Simulator
-        sensorSimulator = SensorSimulator { data ->
-            runOnUiThread { updateSensorUI(data) }
-            mqttManager.publishTelemetry(data)
-        }
+        locationFinder = LocationFinder(this);
 
-        mqttManager = MqttManager(context = this)
+        // Sensor Simulator
+        sensorSimulator = SensorSimulator(
+            onUpdate    = { data ->
+                runOnUiThread { updateSensorUI(data) }
+                mqttManager.publishTelemetry(data)
+            },
+            location  = locationFinder
+        )
+
+        mqttManager = MqttManager(context = this, brokerHost = "192.168.1.136")
         mqttManager.connect(
             onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
@@ -95,15 +108,24 @@ class MainActivity : AppCompatActivity() {
             if (!isStreaming) handleStreamStart() else handleStreamStop()
         }
 
-        if (hasPermissions()) initWebRTC()
-        else requestPermissions.launch(
-            arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        )
+        if (hasPermissions()) {
+            initWebRTC()
+            locationFinder.start()
+        } else {
+            requestPermissions.launch(
+                arrayOf(
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            )
+        }
     }
 
     private fun hasPermissions() =
         ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun initWebRTC() {
         webRtcManager.init()
@@ -173,6 +195,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         sensorSimulator.stop()
+        locationFinder.stop()
         mqttManager.disconnect()
         webRtcManager.release()
         localRenderer.release()

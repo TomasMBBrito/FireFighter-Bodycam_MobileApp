@@ -80,6 +80,7 @@ class WebRTCManager(
         )
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
+            iceTransportsType = PeerConnection.IceTransportsType.ALL
         }
 
         peerConnection = peerConnectionFactory.createPeerConnection(

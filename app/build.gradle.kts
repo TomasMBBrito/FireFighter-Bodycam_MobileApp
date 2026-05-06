@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("io.getstream:stream-webrtc-android:1.3.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.hivemq:hivemq-mqtt-client:1.3.3")

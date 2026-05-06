@@ -2,6 +2,7 @@ package com.example.bodycam.sensors
 
 import android.os.Handler
 import android.os.Looper
+import com.example.bodycam.LocationFinder
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -36,15 +37,13 @@ data class SensorData(
     val isMoving: Boolean
 )
 
-class SensorSimulator(private val onUpdate: (SensorData) -> Unit) {
+class SensorSimulator(private val onUpdate: (SensorData) -> Unit,private val location: LocationFinder) {
 
     private val handler = Handler(Looper.getMainLooper())
 
     // Estado atual (flutua gradualmente)
     private var currentTemp = 37.0
     private var currentBpm  = 90
-    private var currentLat  = 40.2033   // Coimbra (igual ao C#)
-    private var currentLng  = -8.4103
     private var ecgPhase    = 0.0       // para simular onda ECG
 
     private val runnable = object : Runnable {
@@ -56,8 +55,8 @@ class SensorSimulator(private val onUpdate: (SensorData) -> Unit) {
 
     private fun generateData(): SensorData {
         // --- GPS ---
-        currentLat += (Random.nextDouble() - 0.5) * 0.0001
-        currentLng += (Random.nextDouble() - 0.5) * 0.0001
+        val lat = location.currentLat
+        val lng = location.currentLng
 
         // --- Temperatura corporal: 37.0 - 38.5 ---
         currentTemp += Random.nextDouble(-0.1, 0.1)
@@ -101,8 +100,8 @@ class SensorSimulator(private val onUpdate: (SensorData) -> Unit) {
         val orientation = if (fallDetected) "Horizontal" else "Upright"
 
         return SensorData(
-            gpsLat          = round(currentLat, 6),
-            gpsLng          = round(currentLng, 6),
+            gpsLat          = round(lat, 6),
+            gpsLng          = round(lng, 6),
             bodyTemp        = round(currentTemp, 1),
             heartRate       = currentBpm,
             ecgValue        = round(ecgValue, 3),
