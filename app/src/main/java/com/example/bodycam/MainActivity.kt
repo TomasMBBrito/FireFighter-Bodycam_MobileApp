@@ -39,10 +39,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationFinder: LocationFinder
 
     private var isStreaming = false
-    private val firefighterId: String = "b0000001-0000-0000-0000-000000000006"
-    private val missionId: String     = "a0000001-0000-0000-0000-000000000003"
+    private lateinit var firefighterId: String
+    private lateinit var missionId: String
 
-    private val ip : String = "10.217.231.11" // "192.168.1.136" "10.36.36.11"
+    private val ip : String = "192.168.1.136"//"10.217.231.11"   "10.36.36.11"
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -77,6 +77,10 @@ class MainActivity : AppCompatActivity() {
         localRenderer.setMirror(false)
 
         //"http://192.168.1.136:8889/$missionId/$firefighterId/whip"
+
+        firefighterId = intent.getStringExtra("firefighterId") ?: "b0000001-0000-0000-0000-000000000006"
+        missionId     = intent.getStringExtra("missionId")     ?: "a0000001-0000-0000-0000-000000000003"
+
 
         //192.168.1.136
         // WebRTC Manager
