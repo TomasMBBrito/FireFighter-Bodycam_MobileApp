@@ -42,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private val firefighterId: String = "b0000001-0000-0000-0000-000000000006"
     private val missionId: String     = "a0000001-0000-0000-0000-000000000003"
 
+    private val ip : String = "10.217.231.11" // "192.168.1.136" "10.36.36.11"
+
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val cameraOk = permissions[Manifest.permission.CAMERA] == true
@@ -81,7 +83,7 @@ class MainActivity : AppCompatActivity() {
         webRtcManager = WebRTCManager(
             context      = this,
             eglBase      = eglBase,
-            whipUrl      = "http://192.168.1.136:8889/$missionId/$firefighterId/whip",
+            whipUrl      = "http://$ip:8889/$missionId/$firefighterId/whip",
             onConnected  = { runOnUiThread { Toast.makeText(this, "Stream ligado!", Toast.LENGTH_SHORT).show() } },
             onDisconnected = { runOnUiThread { handleStreamStopped() } }
         )
@@ -97,11 +99,11 @@ class MainActivity : AppCompatActivity() {
             location  = locationFinder
         )
 
-        mqttManager = MqttManager(context = this, brokerHost = "192.168.1.136")
+        mqttManager = MqttManager(context = this, brokerHost = ip)
         mqttManager.connect(
             onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
-            onRegistered = { sensorSimulator.start() }  // ← vírgula antes e sem start() separado
+            onRegistered = { sensorSimulator.start() }
         )
 
         btnStream.setOnClickListener {
