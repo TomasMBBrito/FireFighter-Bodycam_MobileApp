@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
             location  = locationFinder
         )
 
-        mqttManager = MqttManager(context = this, brokerHost = ip)
+        mqttManager = MqttManager(context = this, brokerHost = ip , missionId = missionId , firefighterId = firefighterId)
         mqttManager.connect(
             onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },

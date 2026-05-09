@@ -16,8 +16,8 @@ class MqttManager(
     private val context: Context,
     private val brokerHost: String,
     private val brokerPort: Int    = 1883,
-    private val firefighterId: String = "b0000001-0000-0000-0000-000000000006",
-    private val missionId: String     = "a0000001-0000-0000-0000-000000000003",
+    private val firefighterId: String ,
+    private val missionId: String     ,
     private val deviceId: String      = "d2719c1c-8f1b-4b4e-9b5e-1c2f3a4b5c6d"
 ) {
     private var client: Mqtt3AsyncClient? = null

@@ -9,7 +9,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.IOException
 
 class MissionActivity : AppCompatActivity() {
@@ -30,12 +33,7 @@ class MissionActivity : AppCompatActivity() {
         fetchMissions { missions ->
             runOnUiThread {
                 recyclerView.adapter = MissionAdapter(missions) { mission ->
-                    val intent = Intent(this, MainActivity::class.java)
-                    intent.putExtra("firefighterId", firefighterId)
-                    intent.putExtra("firefighterName", firefighterName)
-                    intent.putExtra("missionId", mission.id)
-                    intent.putExtra("missionTitle", mission.title)
-                    startActivity(intent)
+                    associateAndNavigate(firefighterId,firefighterName,mission);
                 }
             }
         }
@@ -69,6 +67,42 @@ class MissionActivity : AppCompatActivity() {
                 onResult(list)
             }
         })
+    }
+
+    private fun associateAndNavigate(firefighterId: String, firefighterName: String, mission: MissionItem){
+        val client = OkHttpClient()
+        val payload = JSONObject().apply {
+            put("MissionID",mission.id)
+            put("FirefighterID",firefighterId)
+        }.toString()
+
+        var request = Request.Builder()
+            .url("http://$ip:5081/associate")
+            .post(payload.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                android.util.Log.e("BODYCAM","Error associating : ${e.message}")
+                navigate(firefighterId,firefighterName,mission)
+            }
+
+            override fun onResponse(call: Call, response: Response){
+                //android.util.Log.d("BODYCAM", "Associate response: ${response.code}")
+                navigate(firefighterId, firefighterName, mission)
+            }
+        })
+    }
+
+    private fun navigate(firefighterId: String, firefighterName: String, mission: MissionItem){
+        runOnUiThread {
+            val intent = Intent(this,MainActivity::class.java)
+            intent.putExtra("firefighterId", firefighterId)
+            intent.putExtra("firefighterName", firefighterName)
+            intent.putExtra("missionId", mission.id)
+            intent.putExtra("missionTitle", mission.title)
+            startActivity(intent)
+        }
     }
 }
 
