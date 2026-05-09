@@ -98,7 +98,13 @@ class WebRTCManager(
                 override fun onSignalingChange(p0: PeerConnection.SignalingState?) {}
                 override fun onIceConnectionChange(p0: PeerConnection.IceConnectionState?) {}
                 override fun onIceConnectionReceivingChange(p0: Boolean) {}
-                override fun onIceGatheringChange(p0: PeerConnection.IceGatheringState?) {}
+                override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
+                    if (state == PeerConnection.IceGatheringState.COMPLETE) {
+                        peerConnection?.localDescription?.let {
+                            sendWhipOffer(it.description)
+                        }
+                    }
+                }
                 override fun onIceCandidatesRemoved(p0: Array<out IceCandidate>?) {}
                 override fun onAddStream(p0: MediaStream?) {}
                 override fun onRemoveStream(p0: MediaStream?) {}
@@ -120,7 +126,7 @@ class WebRTCManager(
         peerConnection?.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {
                 peerConnection?.setLocalDescription(simpleSdpObserver(), sdp)
-                sendWhipOffer(sdp.description)
+                // don't send yet - wait for ICE gathering
             }
             override fun onSetSuccess() {}
             override fun onCreateFailure(error: String?) {
