@@ -3,6 +3,7 @@ package com.example.bodycam
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Button
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
@@ -17,7 +18,8 @@ import java.io.IOException
 
 class MissionActivity : AppCompatActivity() {
 
-    private val ip = "192.168.1.136"  //"10.25.36.11"
+    private val ip = "192.168.1.136" // "172.20.10.12"  //"10.25.36.11"
+    private lateinit var locationFinder: LocationFinder
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,9 +28,13 @@ class MissionActivity : AppCompatActivity() {
 
         val firefighterId = intent.getStringExtra("firefighterId") ?: return
         val firefighterName = intent.getStringExtra("firefighterName") ?: ""
+        val userId = intent.getStringExtra("userId") ?: return
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerMissions)
         recyclerView.layoutManager = LinearLayoutManager(this)
+
+        locationFinder = LocationFinder(this)
+        locationFinder.start()
 
         fetchMissions { missions ->
             runOnUiThread {
@@ -36,6 +42,11 @@ class MissionActivity : AppCompatActivity() {
                     associateAndNavigate(firefighterId,firefighterName,mission);
                 }
             }
+        }
+
+        val btnSoloMission = findViewById<Button>(R.id.btnSoloMission)
+        btnSoloMission.setOnClickListener {
+            createSoloMission(firefighterId,userId, firefighterName)
         }
     }
 
@@ -65,6 +76,58 @@ class MissionActivity : AppCompatActivity() {
                     ))
                 }
                 onResult(list)
+            }
+        })
+    }
+
+    private fun createSoloMission(firefighterId:String, userId: String, firefighterName: String) {
+        val client = OkHttpClient()
+
+        // Usa as coordenadas atuais do GPS
+        val lat = locationFinder.currentLat
+        val lng = locationFinder.currentLng
+
+        val payload = JSONObject().apply {
+            put("Title", firefighterName)
+            put("Location", "Solo Mission")
+            put("Latitude", lat)
+            put("Longitude", lng)
+            put("IncidentType", "Solo")
+            put("CommanderId", userId)
+        }.toString()
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/Mission")
+            .post(payload.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                android.util.Log.e("BODYCAM", "Erro criar missão: ${e.message}")
+                runOnUiThread {
+                    Toast.makeText(this@MissionActivity, "Erro ao criar missão", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: return
+                //android.util.Log.d("BODYCAM", "Missão criada: $body")
+
+                if (!response.isSuccessful) {
+                    runOnUiThread {
+                        Toast.makeText(this@MissionActivity, "Erro: $body", Toast.LENGTH_LONG).show()
+                    }
+                    return
+                }
+
+                val json = JSONObject(body)
+                val mission = MissionItem(
+                    json.getString("missionId"),
+                    json.getString("title"),
+                    json.getString("location")
+                )
+                // Associa e navega automaticamente
+                associateAndNavigate(firefighterId, firefighterName, mission)
             }
         })
     }

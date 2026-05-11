@@ -12,7 +12,7 @@ import java.io.IOException
 
 class FirefighterActivity : AppCompatActivity() {
 
-    private val ip ="192.168.1.136"  //"10.25.36.11"
+    private val ip = "192.168.1.136" // "172.20.10.12"  //"10.25.36.11"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +27,7 @@ class FirefighterActivity : AppCompatActivity() {
                     val intent = Intent(this, MissionActivity::class.java)
                     intent.putExtra("firefighterId", firefighter.id)
                     intent.putExtra("firefighterName", firefighter.name)
+                    intent.putExtra("userId", firefighter.userId)
                     startActivity(intent)
                 }
             }
@@ -53,7 +54,11 @@ class FirefighterActivity : AppCompatActivity() {
                 val list = mutableListOf<FirefighterItem>()
                 for (i in 0 until json.length()) {
                     val obj = json.getJSONObject(i)
-                    list.add(FirefighterItem(obj.getString("firefighterId"), obj.getString("name")))
+                    list.add(FirefighterItem(
+                        id = obj.getString("firefighterId"),
+                        userId = obj.getString("userId"),
+                        name = obj.getString("name")
+                    ))
                 }
                 onResult(list)
             }
@@ -61,4 +66,4 @@ class FirefighterActivity : AppCompatActivity() {
     }
 }
 
-data class FirefighterItem(val id: String, val name: String)
+data class FirefighterItem(val id: String, val userId: String, val name: String)
