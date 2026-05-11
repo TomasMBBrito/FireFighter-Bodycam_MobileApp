@@ -22,7 +22,7 @@ class MqttManager(
     private var client: Mqtt3AsyncClient? = null
     private var isConnected = false
 
-    private val telemetryTopic = "$missionId/$firefighterId/telemetry"
+    private val telemetryTopic = "$firefighterId/telemetry"
 
     fun connect(onSuccess: () -> Unit, onFailure: (String) -> Unit, onRegistered: () -> Unit) {
         client = MqttClient.builder()
@@ -100,6 +100,7 @@ class MqttManager(
 
         val payload = JSONObject().apply {
             put("DeviceId",      deviceId)
+            put("MissionId", missionId)
             put("Timestamp",     timestamp)
             put("GpsLat",        data.gpsLat)
             put("GpsLng",        data.gpsLng)
