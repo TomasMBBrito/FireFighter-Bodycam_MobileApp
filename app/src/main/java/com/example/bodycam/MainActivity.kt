@@ -35,6 +35,8 @@ class MainActivity : AppCompatActivity() {
     private var isStreaming = false
     private lateinit var firefighterId: String
     private lateinit var missionId: String
+    private lateinit var userId : String
+    private lateinit var role : String
 
     private val ip = "192.168.1.136" // "172.20.10.12"  //"10.25.36.11"
 
@@ -63,17 +65,32 @@ class MainActivity : AppCompatActivity() {
 
         firefighterId = intent.getStringExtra("firefighterId") ?: "b0000001-0000-0000-0000-000000000006"
         missionId     = intent.getStringExtra("missionId")     ?: "a0000001-0000-0000-0000-000000000003"
+        userId = intent.getStringExtra("userId") ?: ""
+        role = intent.getStringExtra("role") ?: "Firefighter"
+
+        val isVehicle = role.equals("Vehicle", ignoreCase = true)
 
         // EGL
         eglBase = EglBase.create()
         localRenderer.init(eglBase.eglBaseContext, null)
         localRenderer.setMirror(false)
 
+        var whipUrl = "http://$ip:8889/$firefighterId/whip"
+
+        if(isVehicle){
+            whipUrl = "http://$ip:8889/$userId/whip"
+        }
+
+        android.util.Log.d("BODYCAM", "WHIP URL: $whipUrl")
+        android.util.Log.d("BODYCAM", "firefighterId: $firefighterId")
+        android.util.Log.d("BODYCAM", "userId: $userId")
+        android.util.Log.d("BODYCAM", "role: $role")
+
         // WebRTC
         webRtcManager = WebRTCManager(
             context        = this,
             eglBase        = eglBase,
-            whipUrl        = "http://$ip:8889/$firefighterId/whip",
+            whipUrl        = whipUrl,
             onConnected    = { runOnUiThread { Toast.makeText(this, "Stream ligado!", Toast.LENGTH_SHORT).show() } },
             onDisconnected = { runOnUiThread { handleStreamStopped() } }
         )
@@ -102,7 +119,9 @@ class MainActivity : AppCompatActivity() {
         mqttManager.connect(
             onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
-            onRegistered = { telemetryManager.start() }
+            onRegistered = {
+                if (!isVehicle) telemetryManager.start()
+            }
         )
 
         btnStream.setOnClickListener {

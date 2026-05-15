@@ -28,6 +28,7 @@ class FirefighterActivity : AppCompatActivity() {
                     intent.putExtra("firefighterId", firefighter.id)
                     intent.putExtra("firefighterName", firefighter.name)
                     intent.putExtra("userId", firefighter.userId)
+                    intent.putExtra("role", firefighter.role)
                     startActivity(intent)
                 }
             }
@@ -55,9 +56,11 @@ class FirefighterActivity : AppCompatActivity() {
                 for (i in 0 until json.length()) {
                     val obj = json.getJSONObject(i)
                     list.add(FirefighterItem(
-                        id = obj.getString("firefighterId"),
+                        id = if (obj.has("firefighterId") && !obj.isNull("firefighterId"))
+                            obj.getString("firefighterId") else "",
                         userId = obj.getString("userId"),
-                        name = obj.getString("name")
+                        name = obj.getString("name"),
+                        role = obj.getString("role")
                     ))
                 }
                 onResult(list)
@@ -66,4 +69,4 @@ class FirefighterActivity : AppCompatActivity() {
     }
 }
 
-data class FirefighterItem(val id: String, val userId: String, val name: String)
+data class FirefighterItem(val id: String, val userId: String, val name: String, val role : String)

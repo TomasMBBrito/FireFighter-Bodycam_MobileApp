@@ -29,6 +29,7 @@ class MissionActivity : AppCompatActivity() {
         val firefighterId = intent.getStringExtra("firefighterId") ?: return
         val firefighterName = intent.getStringExtra("firefighterName") ?: ""
         val userId = intent.getStringExtra("userId") ?: return
+        val role = intent.getStringExtra("role") ?: "Firefighter"
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerMissions)
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -39,14 +40,14 @@ class MissionActivity : AppCompatActivity() {
         fetchMissions { missions ->
             runOnUiThread {
                 recyclerView.adapter = MissionAdapter(missions) { mission ->
-                    associateAndNavigate(firefighterId,firefighterName,mission);
+                    associateAndNavigate(firefighterId,firefighterName,mission,role,userId);
                 }
             }
         }
 
         val btnSoloMission = findViewById<Button>(R.id.btnSoloMission)
         btnSoloMission.setOnClickListener {
-            createSoloMission(firefighterId,userId, firefighterName)
+            createSoloMission(firefighterId,userId, firefighterName,role)
         }
     }
 
@@ -80,7 +81,7 @@ class MissionActivity : AppCompatActivity() {
         })
     }
 
-    private fun createSoloMission(firefighterId:String, userId: String, firefighterName: String) {
+    private fun createSoloMission(firefighterId:String, userId: String, firefighterName: String, role : String) {
         val client = OkHttpClient()
 
         // Usa as coordenadas atuais do GPS
@@ -127,12 +128,12 @@ class MissionActivity : AppCompatActivity() {
                     json.getString("location")
                 )
                 // Associa e navega automaticamente
-                associateAndNavigate(firefighterId, firefighterName, mission)
+                associateAndNavigate(firefighterId, firefighterName, mission,role,userId)
             }
         })
     }
 
-    private fun associateAndNavigate(firefighterId: String, firefighterName: String, mission: MissionItem){
+    private fun associateAndNavigate(firefighterId: String, firefighterName: String, mission: MissionItem,role : String, userId : String){
         val client = OkHttpClient()
         val payload = JSONObject().apply {
             put("MissionID",mission.id)
@@ -147,23 +148,25 @@ class MissionActivity : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 android.util.Log.e("BODYCAM","Error associating : ${e.message}")
-                navigate(firefighterId,firefighterName,mission)
+                navigate(firefighterId,firefighterName,mission,role,userId)
             }
 
             override fun onResponse(call: Call, response: Response){
                 //android.util.Log.d("BODYCAM", "Associate response: ${response.code}")
-                navigate(firefighterId, firefighterName, mission)
+                navigate(firefighterId, firefighterName, mission,role,userId)
             }
         })
     }
 
-    private fun navigate(firefighterId: String, firefighterName: String, mission: MissionItem){
+    private fun navigate(firefighterId: String, firefighterName: String, mission: MissionItem, role : String, userId : String){
         runOnUiThread {
             val intent = Intent(this,MainActivity::class.java)
             intent.putExtra("firefighterId", firefighterId)
             intent.putExtra("firefighterName", firefighterName)
             intent.putExtra("missionId", mission.id)
             intent.putExtra("missionTitle", mission.title)
+            intent.putExtra("role", role)
+            intent.putExtra("userId", userId)
             startActivity(intent)
         }
     }

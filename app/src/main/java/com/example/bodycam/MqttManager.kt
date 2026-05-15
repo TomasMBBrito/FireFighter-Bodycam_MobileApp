@@ -51,8 +51,12 @@ class MqttManager(
     private fun register(onRegistered: () -> Unit) {
         val payload = JSONObject().apply {
             put("MissionId",     missionId)
-            put("FirefighterId", firefighterId)
             put("DeviceId",      deviceId)
+            if (firefighterId.isNotEmpty() && firefighterId != "null") {
+                put("FirefighterId", firefighterId)
+            } else {
+                put("FirefighterId", JSONObject.NULL)
+            }
         }.toString()
 
         client?.publishWith()
