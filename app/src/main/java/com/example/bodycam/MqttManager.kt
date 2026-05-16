@@ -24,7 +24,7 @@ class MqttManager(
 
     private val telemetryTopic = "$firefighterId/telemetry"
 
-    fun connect(onSuccess: () -> Unit, onFailure: (String) -> Unit, onRegistered: () -> Unit) {
+    fun connect(onSuccess: () -> Unit, onFailure: (String) -> Unit, onRegistered: () -> Unit , onTTS: (String) -> Unit ) {
         client = MqttClient.builder()
             .useMqttVersion3()
             .identifier(UUID.randomUUID().toString())
@@ -42,6 +42,17 @@ class MqttManager(
                 } else {
                     Log.d("MQTT", "Ligado ao broker")
                     isConnected = true
+
+                    if (firefighterId.isNotEmpty() && firefighterId != "null") {
+                        client?.subscribeWith()
+                            ?.topicFilter("$firefighterId/tts")
+                            ?.callback { msg ->
+                                val text = String(msg.payloadAsBytes)
+                                onTTS(text)
+                            }
+                            ?.send()
+                    }
+
                     register { onRegistered() }
                     onSuccess()
                 }

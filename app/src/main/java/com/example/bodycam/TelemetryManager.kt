@@ -172,7 +172,7 @@ class TelemetryManager(
             activityState = activityState,
             gpsLat = location.currentLat,
             gpsLng = location.currentLng,
-            compassBearing = compassBearing  // This will now have a value!
+            compassBearing = compassBearing
         )
     }
 

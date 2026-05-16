@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var eglBase: EglBase
     private lateinit var webRtcManager: WebRTCManager
     private lateinit var telemetryManager: TelemetryManager
+    private lateinit var tts: TextToSpeech
     private lateinit var mqttManager: MqttManager
     private lateinit var locationFinder: LocationFinder
 
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "192.168.1.77" // "172.20.10.12"  //"10.25.36.11"
+    private val ip = "192.168.1.136"
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -81,11 +82,6 @@ class MainActivity : AppCompatActivity() {
             whipUrl = "http://$ip:8889/$userId/whip"
         }
 
-        android.util.Log.d("BODYCAM", "WHIP URL: $whipUrl")
-        android.util.Log.d("BODYCAM", "firefighterId: $firefighterId")
-        android.util.Log.d("BODYCAM", "userId: $userId")
-        android.util.Log.d("BODYCAM", "role: $role")
-
         // WebRTC
         webRtcManager = WebRTCManager(
             context        = this,
@@ -97,6 +93,8 @@ class MainActivity : AppCompatActivity() {
 
         // Location
         locationFinder = LocationFinder(this)
+
+        tts = TextToSpeech(this)
 
         // MQTT
         mqttManager = MqttManager(
@@ -121,7 +119,8 @@ class MainActivity : AppCompatActivity() {
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
             onRegistered = {
                 if (!isVehicle) telemetryManager.start()
-            }
+            },
+            onTTS = { text -> runOnUiThread { tts.speak(text) } }
         )
 
         btnStream.setOnClickListener {

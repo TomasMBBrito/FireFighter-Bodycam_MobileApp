@@ -1,5 +1,14 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
+}
+
+val envFile = rootProject.file(".env")
+val envProperties = Properties()
+
+if (envFile.exists()) {
+    envProperties.load(envFile.inputStream())
 }
 
 android {
@@ -10,6 +19,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.example.bodycam"
         minSdk = 24
@@ -18,6 +31,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "IP",
+            "\"${envProperties.getProperty("IP")}\""
+        )
     }
 
     buildTypes {
