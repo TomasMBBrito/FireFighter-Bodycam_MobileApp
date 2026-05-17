@@ -12,7 +12,7 @@ class TextToSpeech(context: Context) {
     init {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("en", "EN")
+                tts?.language = Locale("pt", "PT")
                 isReady = true
                 Log.d("TTS", "TextToSpeech pronto")
             } else {

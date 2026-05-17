@@ -6,20 +6,21 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.webrtc.*
+import org.webrtc.audio.JavaAudioDeviceModule
 
 class WebRTCManager(
     private val context: Context,
     private val eglBase: EglBase,
     private val whipUrl: String,
     private val onConnected: () -> Unit,
-    private val onDisconnected: () -> Unit
+    private val onDisconnected: () -> Unit,
 ) {
 
     private lateinit var peerConnectionFactory: PeerConnectionFactory
     private var peerConnection: PeerConnection? = null
     var localVideoTrack: VideoTrack? = null
         private set
-    private var localAudioTrack: AudioTrack? = null
+    //private var localAudioTrack: AudioTrack? = null
     private var videoCapturer: VideoCapturer? = null
 
     fun init() {
@@ -46,8 +47,8 @@ class WebRTCManager(
         localVideoTrack = peerConnectionFactory.createVideoTrack("video0", videoSource)
 
         // Áudio
-        val audioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
-        localAudioTrack = peerConnectionFactory.createAudioTrack("audio0", audioSource)
+//        val audioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
+//        localAudioTrack = peerConnectionFactory.createAudioTrack("audio0", audioSource)
     }
 
     fun startStream() {
@@ -115,7 +116,7 @@ class WebRTCManager(
         )
 
         localVideoTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
-        localAudioTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
+        //localAudioTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
     }
 
     private fun createOffer() {

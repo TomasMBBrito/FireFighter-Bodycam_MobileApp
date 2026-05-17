@@ -134,7 +134,7 @@ class MqttManager(
         }.toString()
 
         publish(telemetryTopic, payload, qos = 2)
-        Log.d("MQTT", "Telemetria enviada — Activity: ${data.activityState}")
+        //Log.d("MQTT", "Telemetria enviada — Activity: ${data.activityState}")
     }
 
     private fun publish(topic: String, payload: String, qos: Int) {
@@ -159,5 +159,16 @@ class MqttManager(
         client?.disconnect()
         isConnected = false
         Log.d("MQTT", "Desligado do broker")
+    }
+
+    fun publishAlert() {
+        val payload = JSONObject().apply {
+            put("FirefighterId", firefighterId)
+            put("MissionId", missionId)
+            put("Type", "SOS")
+        }.toString()
+
+        publish("$firefighterId/alert", payload, qos = 1)
+        Log.d("MQTT", "Alerta SOS publicado")
     }
 }

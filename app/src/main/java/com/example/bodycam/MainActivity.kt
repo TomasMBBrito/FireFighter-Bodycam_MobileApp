@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var telemetryManager: TelemetryManager
     private lateinit var tts: TextToSpeech
     private lateinit var mqttManager: MqttManager
+    private lateinit var speechManager: SpeechManager
     private lateinit var locationFinder: LocationFinder
 
     private var isStreaming = false
@@ -39,7 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "192.168.1.77"
+    private val ip = "192.168.1.136"
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -82,19 +83,24 @@ class MainActivity : AppCompatActivity() {
             whipUrl = "http://$ip:8889/$userId/whip"
         }
 
+        speechManager = SpeechManager(this) {
+            mqttManager.publishAlert()
+        }
+
         // WebRTC
         webRtcManager = WebRTCManager(
             context        = this,
             eglBase        = eglBase,
             whipUrl        = whipUrl,
             onConnected    = { runOnUiThread { Toast.makeText(this, "Stream ligado!", Toast.LENGTH_SHORT).show() } },
-            onDisconnected = { runOnUiThread { handleStreamStopped() } }
+            onDisconnected = { runOnUiThread { handleStreamStopped() } },
         )
 
         // Location
         locationFinder = LocationFinder(this)
 
         tts = TextToSpeech(this)
+
 
         // MQTT
         mqttManager = MqttManager(
@@ -118,7 +124,10 @@ class MainActivity : AppCompatActivity() {
             onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
             onRegistered = {
-                if (!isVehicle) telemetryManager.start()
+                if (!isVehicle) {
+                    telemetryManager.start()
+                    runOnUiThread { speechManager.start() }
+                }
             },
             onTTS = { text -> runOnUiThread { tts.speak(text) } }
         )
@@ -200,6 +209,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        speechManager.stop()
         telemetryManager.stop()
         locationFinder.stop()
         mqttManager.disconnect()

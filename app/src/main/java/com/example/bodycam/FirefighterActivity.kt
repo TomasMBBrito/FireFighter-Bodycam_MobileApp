@@ -12,7 +12,7 @@ import java.io.IOException
 
 class FirefighterActivity : AppCompatActivity() {
 
-    private val ip = "192.168.1.77" // "172.20.10.12"  //"10.25.36.11"
+    private val ip = "192.168.1.136"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
