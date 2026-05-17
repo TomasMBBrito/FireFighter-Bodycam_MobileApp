@@ -18,14 +18,22 @@ class TelemetryManager(
 ) {
     private val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
 
-    // Only need these two sensors
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+    private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     private val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+
 
     // Raw sensor values
     private var accelX: Float? = null
     private var accelY: Float? = null
     private var accelZ: Float? = null
+
+    private var gyroX: Float? = null
+
+    private var gyroY: Float? = null
+
+    private var gyroZ: Float? = null
 
     private var magnetX: Float? = null
     private var magnetY: Float? = null
@@ -56,7 +64,13 @@ class TelemetryManager(
                     accelY = event.values[1]
                     accelZ = event.values[2]
                 }
+                Sensor.TYPE_GYROSCOPE -> {
+                    gyroX = event.values[0]
+                    gyroY = event.values[1]
+                    gyroZ = event.values[2]
+                }
                 Sensor.TYPE_MAGNETIC_FIELD -> {
+                    Log.d("TelemetryManager", "Magnet event fired: ${event.values[0]}, ${event.values[1]}, ${event.values[2]}")
                     magnetX = event.values[0]
                     magnetY = event.values[1]
                     magnetZ = event.values[2]
@@ -84,6 +98,7 @@ class TelemetryManager(
 
     private fun calculateBearing() {
         try {
+            Log.d("TelemetryManager", "calculateBearing called, magnet: $magnetX $magnetY $magnetZ")
             val gravity = floatArrayOf(accelX!!, accelY!!, accelZ!!)
             val geomagnetic = floatArrayOf(magnetX!!, magnetY!!, magnetZ!!)
 
@@ -158,13 +173,13 @@ class TelemetryManager(
             }
         }
 
-        return SensorData(
+        val payload = SensorData(
             accelX = accelX,
             accelY = accelY,
             accelZ = accelZ,
-            gyroX = null,
-            gyroY = null,
-            gyroZ = null,
+            gyroX = gyroX,
+            gyroY = gyroY,
+            gyroZ = gyroZ,
             motionLevel = motionLevel,
             isMoving = isMoving,
             fallDetected = fallDetected,
@@ -174,10 +189,15 @@ class TelemetryManager(
             gpsLng = location.currentLng,
             compassBearing = compassBearing
         )
+        Log.d("TelemetryManager", "Payload compassBearing: ${payload.compassBearing}")
+        return payload
     }
 
     fun start() {
         accelerometer?.let {
+            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
+        }
+        gyroscope?.let {
             sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
         }
         magnetometer?.let {

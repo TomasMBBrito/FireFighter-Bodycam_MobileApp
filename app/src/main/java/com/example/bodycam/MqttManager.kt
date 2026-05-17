@@ -130,6 +130,7 @@ class MqttManager(
             put("FallDetected",  data.fallDetected)
             put("Orientation",   data.orientation)
             put("ActivityState", data.activityState)
+            put("CompassBearing", data.compassBearing)
         }.toString()
 
         publish(telemetryTopic, payload, qos = 2)

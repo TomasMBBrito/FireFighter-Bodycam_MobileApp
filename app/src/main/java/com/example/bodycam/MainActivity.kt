@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "192.168.1.136"
+    private val ip = "192.168.1.77"
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
