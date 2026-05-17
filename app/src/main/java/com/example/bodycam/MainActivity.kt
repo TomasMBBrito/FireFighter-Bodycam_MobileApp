@@ -1,10 +1,12 @@
 package com.example.bodycam
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -33,6 +35,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mqttManager: MqttManager
     private lateinit var speechManager: SpeechManager
     private lateinit var locationFinder: LocationFinder
+
+    private lateinit var wakeLock: PowerManager.WakeLock
 
     private var isStreaming = false
     private lateinit var firefighterId: String
@@ -148,6 +152,12 @@ class MainActivity : AppCompatActivity() {
                 )
             )
         }
+
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "BodyCam::StreamWakeLock"
+        )
     }
 
     private fun hasPermissions() =
@@ -164,11 +174,24 @@ class MainActivity : AppCompatActivity() {
         webRtcManager.startStream()
         isStreaming    = true
         btnStream.text = "Parar stream"
+
+        val intent = Intent(this, ForegroundStreamService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+
+        if (!wakeLock.isHeld) wakeLock.acquire()
     }
 
     private fun handleStreamStop() {
         webRtcManager.stopStream()
         handleStreamStopped()
+
+        stopService(Intent(this, ForegroundStreamService::class.java))
+
+        if (wakeLock.isHeld) wakeLock.release()
     }
 
     private fun handleStreamStopped() {
@@ -209,6 +232,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (::wakeLock.isInitialized && wakeLock.isHeld) {
+            wakeLock.release()
+        }
         speechManager.stop()
         telemetryManager.stop()
         locationFinder.stop()
