@@ -1,6 +1,7 @@
 package com.example.bodycam
 
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -76,9 +77,8 @@ class WebRTCManager(
     }
 
     private fun createPeerConnection() {
-        val iceServers = listOf(
-            PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
-        )
+        val iceServers = emptyList<PeerConnection.IceServer>()
+
         val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             iceTransportsType = PeerConnection.IceTransportsType.ALL
@@ -126,8 +126,14 @@ class WebRTCManager(
         }
         peerConnection?.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {
-                peerConnection?.setLocalDescription(simpleSdpObserver(), sdp)
-                // don't send yet - wait for ICE gathering
+                peerConnection?.setLocalDescription(object : SdpObserver {
+                    override fun onSetSuccess() {
+                        sendWhipOffer(sdp.description) // send immediately
+                    }
+                    override fun onCreateSuccess(p0: SessionDescription?) {}
+                    override fun onCreateFailure(p0: String?) {}
+                    override fun onSetFailure(p0: String?) {}
+                }, sdp)
             }
             override fun onSetSuccess() {}
             override fun onCreateFailure(error: String?) {
@@ -146,6 +152,7 @@ class WebRTCManager(
                     .build()
 
                 val response = OkHttpClient().newCall(request).execute()
+                Log.d("HTTPWEBRTC", "${response}")
                 val answerSdp = response.body?.string()
 
                 if (response.isSuccessful && answerSdp != null) {
