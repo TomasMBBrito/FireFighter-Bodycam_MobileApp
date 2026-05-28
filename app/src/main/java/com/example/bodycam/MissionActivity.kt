@@ -18,7 +18,7 @@ import java.io.IOException
 
 class MissionActivity : AppCompatActivity() {
 
-    private val ip = "100.102.144.13"
+    private val ip = "192.168.1.136"
     private lateinit var locationFinder: LocationFinder
 
     @RequiresApi(Build.VERSION_CODES.O)
