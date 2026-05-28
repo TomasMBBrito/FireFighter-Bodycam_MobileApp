@@ -18,7 +18,7 @@ import kotlin.apply
 
 class FirefighterActivity : AppCompatActivity() {
 
-    private val ip = "192.168.1.136"
+    private val ip = "100.102.144.13"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,7 +70,7 @@ class FirefighterActivity : AppCompatActivity() {
         val client = OkHttpClient()
 
         val json = JSONObject().apply {
-            put("userId", firefighter.userId)
+            put("userId", firefighter.username)
             put("password", password)
         }
 
@@ -152,7 +152,8 @@ class FirefighterActivity : AppCompatActivity() {
                             obj.getString("firefighterId") else "",
                         userId = obj.getString("userId"),
                         name = obj.getString("name"),
-                        role = obj.getString("role")
+                        role = obj.getString("role"),
+                        username = obj.getString("username")  // add this
                     ))
                 }
                 onResult(list)
@@ -161,4 +162,4 @@ class FirefighterActivity : AppCompatActivity() {
     }
 }
 
-data class FirefighterItem(val id: String, val userId: String, val name: String, val role : String)
+data class FirefighterItem(val id: String, val userId: String, val name: String, val role: String, val username: String)

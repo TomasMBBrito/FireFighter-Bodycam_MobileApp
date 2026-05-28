@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "192.168.1.136"
+    private val ip = "100.102.144.13"
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -81,10 +81,10 @@ class MainActivity : AppCompatActivity() {
         localRenderer.init(eglBase.eglBaseContext, null)
         localRenderer.setMirror(false)
 
-        var whipUrl = "http://$ip:8889/$firefighterId/whip"
+        var whipUrl = "http://$ip:8889/$firefighterId/$missionId/whip"
 
         if(isVehicle){
-            whipUrl = "http://$ip:8889/$userId/whip"
+            whipUrl = "http://$ip:8889/$userId/$missionId/whip"
         }
 
         speechManager = SpeechManager(this) {
