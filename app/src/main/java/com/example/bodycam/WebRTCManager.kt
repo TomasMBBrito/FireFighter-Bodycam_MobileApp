@@ -119,6 +119,43 @@ class WebRTCManager(
         //localAudioTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
     }
 
+    private fun preferH264(sdp: String): String {
+        val lines = sdp.split("\r\n").toMutableList()
+
+        val h264PayloadTypes = mutableListOf<String>()
+
+        for (line in lines) {
+            if (line.startsWith("a=rtpmap:") && line.contains("H264/90000")) {
+                val payload = line.substringAfter("a=rtpmap:")
+                    .substringBefore(" ")
+                h264PayloadTypes.add(payload)
+            }
+        }
+
+        if (h264PayloadTypes.isEmpty()) {
+            Log.e("WebRTC", "No H264 codec found in SDP")
+            return sdp
+        }
+
+        val mLineIndex = lines.indexOfFirst { it.startsWith("m=video") }
+
+        if (mLineIndex == -1) return sdp
+
+        val parts = lines[mLineIndex].split(" ").toMutableList()
+
+        val header = parts.take(3)
+        val payloads = parts.drop(3)
+
+        val reorderedPayloads =
+            h264PayloadTypes + payloads.filter { it !in h264PayloadTypes }
+
+        lines[mLineIndex] =
+            (header + reorderedPayloads).joinToString(" ")
+
+        return lines.joinToString("\r\n")
+    }
+
+
     private fun createOffer() {
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "false"))
@@ -126,14 +163,21 @@ class WebRTCManager(
         }
         peerConnection?.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {
+                val h264Sdp = preferH264(sdp.description)
+
+                val modifiedSdp = SessionDescription(
+                    sdp.type,
+                    h264Sdp
+                )
+
                 peerConnection?.setLocalDescription(object : SdpObserver {
                     override fun onSetSuccess() {
-                        sendWhipOffer(sdp.description) // send immediately
+                        sendWhipOffer(h264Sdp)
                     }
                     override fun onCreateSuccess(p0: SessionDescription?) {}
                     override fun onCreateFailure(p0: String?) {}
                     override fun onSetFailure(p0: String?) {}
-                }, sdp)
+                }, modifiedSdp)
             }
             override fun onSetSuccess() {}
             override fun onCreateFailure(error: String?) {
