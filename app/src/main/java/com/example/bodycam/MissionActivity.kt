@@ -150,7 +150,7 @@ class MissionActivity : AppCompatActivity() {
         android.util.Log.d("BODYCAM", "missionId=${mission.id}")
 
         var request = Request.Builder()
-            .url("http://$ip:5081/associate")
+            .url("http://$ip:5081/api/Mission/associate")
             .post(payload.toRequestBody("application/json".toMediaType()))
             .build()
 
