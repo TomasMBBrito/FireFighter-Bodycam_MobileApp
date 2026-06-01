@@ -17,7 +17,8 @@ class MqttManager(
     private val brokerPort: Int       = 1883,
     private val firefighterId: String,
     private val missionId: String,
-    private val deviceId: String      = "d2719c1c-8f1b-4b4e-9b5e-1c2f3a4b5c6d"
+    private val deviceId: String      = "d2719c1c-8f1b-4b4e-9b5e-1c2f3a4b5c6d",
+    private val isVehicle: Boolean,
 ) {
     private var client: Mqtt3AsyncClient? = null
     private var isConnected = false
@@ -114,23 +115,46 @@ class MqttManager(
         }
 
         val payload = JSONObject().apply {
-            put("DeviceId",      deviceId)
+            put("DeviceId", deviceId)
             put("MissionId", missionId)
-            put("Timestamp",     timestamp)
-            put("GpsLat",        data.gpsLat)
-            put("GpsLng",        data.gpsLng)
-            put("AccelX",        data.accelX)
-            put("AccelY",        data.accelY)
-            put("AccelZ",        data.accelZ)
-            put("GyroX",         data.gyroX)
-            put("GyroY",         data.gyroY)
-            put("GyroZ",         data.gyroZ)
-            put("MotionLevel",   data.motionLevel)
-            put("IsMoving",      data.isMoving)
-            put("FallDetected",  data.fallDetected)
-            put("Orientation",   data.orientation)
-            put("ActivityState", data.activityState)
-            put("CompassBearing", data.compassBearing)
+            put("Timestamp", timestamp)
+
+            put("GpsLat", data.gpsLat)
+            put("GpsLng", data.gpsLng)
+
+            if (isVehicle) {
+                put("AccelX", JSONObject.NULL)
+                put("AccelY", JSONObject.NULL)
+                put("AccelZ", JSONObject.NULL)
+
+                put("GyroX", JSONObject.NULL)
+                put("GyroY", JSONObject.NULL)
+                put("GyroZ", JSONObject.NULL)
+
+                put("MotionLevel", JSONObject.NULL)
+                put("IsMoving", JSONObject.NULL)
+                put("FallDetected", JSONObject.NULL)
+
+                put("Orientation", JSONObject.NULL)
+                put("ActivityState", JSONObject.NULL)
+                put("CompassBearing", JSONObject.NULL)
+            } else {
+                put("AccelX", data.accelX)
+                put("AccelY", data.accelY)
+                put("AccelZ", data.accelZ)
+
+                put("GyroX", data.gyroX)
+                put("GyroY", data.gyroY)
+                put("GyroZ", data.gyroZ)
+
+                put("MotionLevel", data.motionLevel)
+                put("IsMoving", data.isMoving)
+                put("FallDetected", data.fallDetected)
+
+                put("Orientation", data.orientation)
+                put("ActivityState", data.activityState)
+                put("CompassBearing", data.compassBearing)
+            }
         }.toString()
 
         publish(telemetryTopic, payload, qos = 2)

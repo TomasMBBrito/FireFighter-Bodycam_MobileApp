@@ -120,7 +120,8 @@ class MainActivity : AppCompatActivity() {
             context       = this,
             brokerHost    = ip,
             missionId     = missionId,
-            firefighterId = firefighterId
+            firefighterId = firefighterId,
+            isVehicle = role.equals("Vehicle", ignoreCase = true)
         )
 
         // Telemetry
@@ -137,8 +138,8 @@ class MainActivity : AppCompatActivity() {
             onSuccess    = { runOnUiThread { Toast.makeText(this, "MQTT ligado!", Toast.LENGTH_SHORT).show() } },
             onFailure    = { err -> runOnUiThread { Toast.makeText(this, "MQTT erro: $err", Toast.LENGTH_LONG).show() } },
             onRegistered = {
+                telemetryManager.start()
                 if (!isVehicle) {
-                    telemetryManager.start()
                     runOnUiThread { speechManager.start() }
                 }
             },
