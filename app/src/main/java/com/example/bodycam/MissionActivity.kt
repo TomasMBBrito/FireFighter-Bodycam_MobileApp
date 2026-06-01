@@ -26,7 +26,13 @@ class MissionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_mission)
 
-        val firefighterId = intent.getStringExtra("firefighterId") ?: return
+        val firefighterId = intent.getStringExtra("firefighterId")
+
+        if (firefighterId.isNullOrEmpty()) {
+            Toast.makeText(this, "Firefighter ID missing!", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         val firefighterName = intent.getStringExtra("firefighterName") ?: ""
         val userId = intent.getStringExtra("userId") ?: return
         val role = intent.getStringExtra("role") ?: "Firefighter"
@@ -140,6 +146,9 @@ class MissionActivity : AppCompatActivity() {
             put("FirefighterID",firefighterId)
         }.toString()
 
+        android.util.Log.d("BODYCAM", "firefighterId=$firefighterId")
+        android.util.Log.d("BODYCAM", "missionId=${mission.id}")
+
         var request = Request.Builder()
             .url("http://$ip:5081/associate")
             .post(payload.toRequestBody("application/json".toMediaType()))
@@ -151,9 +160,49 @@ class MissionActivity : AppCompatActivity() {
                 navigate(firefighterId,firefighterName,mission,role,userId)
             }
 
-            override fun onResponse(call: Call, response: Response){
-                //android.util.Log.d("BODYCAM", "Associate response: ${response.code}")
-                navigate(firefighterId, firefighterName, mission,role,userId)
+            override fun onResponse(call: Call, response: Response) {
+
+                val body = response.body?.string() ?: ""
+
+                if (response.code == 409) {
+
+                    val message = try {
+                        JSONObject(body).getString("message")
+                    } catch (e: Exception) {
+                        "Already assigned to another mission."
+                    }
+
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MissionActivity,
+                            message,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    return
+                }
+
+                if (!response.isSuccessful) {
+
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MissionActivity,
+                            "Error (${response.code})",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    return
+                }
+
+                navigate(
+                    firefighterId,
+                    firefighterName,
+                    mission,
+                    role,
+                    userId
+                )
             }
         })
     }

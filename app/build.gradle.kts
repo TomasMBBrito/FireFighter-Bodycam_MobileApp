@@ -68,6 +68,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.cronet.embedded)
     val cameraxVersion = "1.5.1"
 
     implementation(libs.androidx.activity.ktx)

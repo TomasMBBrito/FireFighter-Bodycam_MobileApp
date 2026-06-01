@@ -148,8 +148,7 @@ class FirefighterActivity : AppCompatActivity() {
                 for (i in 0 until json.length()) {
                     val obj = json.getJSONObject(i)
                     list.add(FirefighterItem(
-                        id = if (obj.has("firefighterId") && !obj.isNull("firefighterId"))
-                            obj.getString("firefighterId") else "",
+                        id = obj.getString("firefighterId"),
                         userId = obj.getString("userId"),
                         name = obj.getString("name"),
                         role = obj.getString("role"),

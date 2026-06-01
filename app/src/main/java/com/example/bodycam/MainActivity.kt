@@ -11,15 +11,27 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.bodycam.sensors.SensorData
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import org.json.JSONObject
 import org.webrtc.EglBase
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
     // Views
     private lateinit var btnStream: Button
+
+    private lateinit var btnLeaveMission: Button
     private lateinit var localRenderer: org.webrtc.SurfaceViewRenderer
     private lateinit var tvMotion: TextView
     private lateinit var tvAccel: TextView
@@ -63,6 +75,7 @@ class MainActivity : AppCompatActivity() {
 
         localRenderer = findViewById(R.id.localRenderer)
         btnStream     = findViewById(R.id.btnStream)
+        btnLeaveMission = findViewById(R.id.btnLeaveMission)
         tvMotion      = findViewById(R.id.tvMotion)
         tvAccel       = findViewById(R.id.tvAccel)
         tvGyro        = findViewById(R.id.tvGyro)
@@ -82,10 +95,6 @@ class MainActivity : AppCompatActivity() {
         localRenderer.setMirror(false)
 
         var whipUrl = "http://$ip:8889/$firefighterId/$missionId/whip"
-
-        if(isVehicle){
-            whipUrl = "http://$ip:8889/$userId/$missionId/whip"
-        }
 
         speechManager = SpeechManager(this) {
             mqttManager.publishAlert()
@@ -140,6 +149,20 @@ class MainActivity : AppCompatActivity() {
             if (!isStreaming) handleStreamStart() else handleStreamStop()
         }
 
+        btnLeaveMission.setOnClickListener {
+
+            if (isStreaming) {
+                Toast.makeText(
+                    this,
+                    "Stop the stream before leaving the mission",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
+
+            showLeaveMissionConfirmation()
+        }
+
         if (hasPermissions()) {
             initWebRTC()
             locationFinder.start()
@@ -170,10 +193,138 @@ class MainActivity : AppCompatActivity() {
         webRtcManager.localVideoTrack?.addSink(localRenderer)
     }
 
+    private fun leaveMission() {
+
+        val client = OkHttpClient()
+
+        val payload = JSONObject().apply {
+            put("MissionID", missionId)
+            put("FirefighterID", firefighterId)
+        }.toString()
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/Mission/leave")
+            .post(
+                payload.toRequestBody(
+                    "application/json".toMediaType()
+                )
+            )
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+
+            override fun onFailure(call: Call, e: IOException) {
+
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Failed to leave mission",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            override fun onResponse(
+                call: Call,
+                response: Response
+            ) {
+
+                if (!response.isSuccessful) {
+
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Error leaving mission",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    return
+                }
+
+                runOnUiThread {
+
+                    if (isStreaming)
+                        handleStreamStop()
+
+                    val intent =
+                        Intent(this@MainActivity,
+                            MissionActivity::class.java)
+
+                    intent.putExtra("firefighterId", firefighterId)
+                    intent.putExtra("userId", userId)
+                    intent.putExtra("role", role)
+
+                    startActivity(intent)
+
+                    finish()
+                }
+            }
+        })
+    }
+
+    private fun startStreamingApi(firefighterId: String, missionId: String) {
+
+        val client = OkHttpClient()
+
+        val json = JSONObject().apply {
+            put("FirefighterID", firefighterId)
+            put("MissionID", missionId)
+        }
+
+        val body = json.toString()
+            .toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/Mission/firefighter/start-stream")
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                android.util.Log.e("BODYCAM", "start stream error: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                android.util.Log.d("BODYCAM", "stream started: ${response.code}")
+            }
+        })
+    }
+
+    private fun stopStreamingApi(firefighterId: String, missionId: String) {
+
+        val client = OkHttpClient()
+
+        val json = JSONObject().apply {
+            put("FirefighterID", firefighterId)
+            put("MissionID", missionId)
+        }
+
+        val body = json.toString()
+            .toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/Mission/firefighter/stop-stream")
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                android.util.Log.e("BODYCAM", "stop stream error: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                android.util.Log.d("BODYCAM", "stream stopped: ${response.code}")
+            }
+        })
+    }
+
     private fun handleStreamStart() {
         webRtcManager.startStream()
         isStreaming    = true
         btnStream.text = "Parar stream"
+
+        startStreamingApi(firefighterId, missionId)
 
         val intent = Intent(this, ForegroundStreamService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -197,6 +348,20 @@ class MainActivity : AppCompatActivity() {
     private fun handleStreamStopped() {
         isStreaming    = false
         btnStream.text = "Iniciar stream"
+
+        stopStreamingApi(firefighterId, missionId)
+    }
+
+    private fun showLeaveMissionConfirmation() {
+
+        AlertDialog.Builder(this)
+            .setTitle("Leave Mission")
+            .setMessage("Are you sure you want to leave this mission?")
+            .setPositiveButton("Leave") { _, _ ->
+                leaveMission()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun updateSensorUI(data: SensorData) {
@@ -244,3 +409,5 @@ class MainActivity : AppCompatActivity() {
         eglBase.release()
     }
 }
+
+private fun Call.enqueue(responseCallback: Any) {}
