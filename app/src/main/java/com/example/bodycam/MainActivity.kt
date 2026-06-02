@@ -25,6 +25,7 @@ import okhttp3.Response
 import org.json.JSONObject
 import org.webrtc.EglBase
 import java.io.IOException
+import android.content.pm.ActivityInfo
 
 class MainActivity : AppCompatActivity() {
 
@@ -72,6 +73,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         localRenderer = findViewById(R.id.localRenderer)
         btnStream     = findViewById(R.id.btnStream)

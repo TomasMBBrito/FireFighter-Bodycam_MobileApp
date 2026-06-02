@@ -19,27 +19,17 @@ class TelemetryManager(
     private val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
 
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-    private val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+    private val rotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
-
-    // Raw sensor values
     private var accelX: Float? = null
     private var accelY: Float? = null
     private var accelZ: Float? = null
 
     private var gyroX: Float? = null
-
     private var gyroY: Float? = null
-
     private var gyroZ: Float? = null
 
-    private var magnetX: Float? = null
-    private var magnetY: Float? = null
-    private var magnetZ: Float? = null
-
-    // The bearing we want (0-360 degrees)
     private var compassBearing: Float? = null
 
     private var freefallDetected = false
@@ -47,17 +37,14 @@ class TelemetryManager(
     private var lastPublishTime = 0L
 
     init {
-        Log.d("TelemetryManager", "Accelerometer available: ${accelerometer != null}")
-        Log.d("TelemetryManager", "Magnetometer available: ${magnetometer != null}")
-
-        if (magnetometer == null) {
-            Log.e("TelemetryManager", "No magnetometer! Bearing will be null.")
+        Log.d("TelemetryManager", "RotationVector available: ${rotationVector != null}")
+        if (rotationVector == null) {
+            Log.e("TelemetryManager", "No rotation vector sensor!")
         }
     }
 
     private val listener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            // Store raw values
             when (event.sensor.type) {
                 Sensor.TYPE_ACCELEROMETER -> {
                     accelX = event.values[0]
@@ -69,21 +56,11 @@ class TelemetryManager(
                     gyroY = event.values[1]
                     gyroZ = event.values[2]
                 }
-                Sensor.TYPE_MAGNETIC_FIELD -> {
-                    Log.d("TelemetryManager", "Magnet event fired: ${event.values[0]}, ${event.values[1]}, ${event.values[2]}")
-                    magnetX = event.values[0]
-                    magnetY = event.values[1]
-                    magnetZ = event.values[2]
+                Sensor.TYPE_ROTATION_VECTOR -> {
+                    calculateBearingFromRotationVector(event.values)
                 }
             }
 
-            // Calculate bearing whenever we have both sensors
-            if (accelX != null && accelY != null && accelZ != null &&
-                magnetX != null && magnetY != null && magnetZ != null) {
-                calculateBearing()
-            }
-
-            // Publish every second
             val now = System.currentTimeMillis()
             if (now - lastPublishTime >= 1000L) {
                 lastPublishTime = now
@@ -96,38 +73,24 @@ class TelemetryManager(
         }
     }
 
-    private fun calculateBearing() {
+    private fun calculateBearingFromRotationVector(rotationValues: FloatArray) {
         try {
-            Log.d("TelemetryManager", "calculateBearing called, magnet: $magnetX $magnetY $magnetZ")
-            val gravity = floatArrayOf(accelX!!, accelY!!, accelZ!!)
-            val geomagnetic = floatArrayOf(magnetX!!, magnetY!!, magnetZ!!)
+            val rotationMatrix = FloatArray(9)
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, rotationValues)
 
-            val R = FloatArray(9)
-            val I = FloatArray(9)
+            val orientation = FloatArray(3)
+            SensorManager.getOrientation(rotationMatrix, orientation)
 
-            // Get rotation matrix from accelerometer and magnetometer
-            val success = SensorManager.getRotationMatrix(R, I, gravity, geomagnetic)
+            var bearing = Math.toDegrees(orientation[0].toDouble()).toFloat()
+            compassBearing = (bearing + 360f) % 360f
 
-            if (success) {
-                val orientation = FloatArray(3)
-                SensorManager.getOrientation(R, orientation)
-
-                // orientation[0] = azimuth (bearing) in radians
-                var bearing = Math.toDegrees(orientation[0].toDouble()).toFloat()
-                bearing = (bearing + 360) % 360  // Normalize to 0-360
-
-                compassBearing = bearing
-
-                // Debug log - remove in production
-                Log.d("TelemetryManager", "Bearing: ${"%.1f".format(bearing)}°")
-            }
+            Log.d("Telemetry", "Bearing=$compassBearing")
         } catch (e: Exception) {
-            Log.e("TelemetryManager", "Error calculating bearing", e)
+            Log.e("TelemetryManager", "Rotation vector error", e)
         }
     }
 
     private fun buildPayload(): SensorData {
-        // Calculate motion level
         val magnitude = if (accelX != null && accelY != null && accelZ != null) {
             sqrt(accelX!! * accelX!! + accelY!! * accelY!! + accelZ!! * accelZ!!)
         } else null
@@ -135,7 +98,6 @@ class TelemetryManager(
         val motionLevel = magnitude?.let { abs(it - 9.8f) }
         val isMoving = motionLevel?.let { it > 0.5f }
 
-        // Fall detection
         val fallDetected = if (magnitude != null) {
             val now = System.currentTimeMillis()
             if (magnitude < 2.0f) {
@@ -151,7 +113,6 @@ class TelemetryManager(
             }
         } else null
 
-        // Device orientation
         val orientation = if (accelX != null && accelY != null && accelZ != null) {
             when {
                 accelZ!! > 8f -> "Face up"
@@ -163,7 +124,6 @@ class TelemetryManager(
             }
         } else null
 
-        // Activity state
         val activityState = motionLevel?.let {
             when {
                 it < 0.3f -> "Still"
@@ -194,15 +154,9 @@ class TelemetryManager(
     }
 
     fun start() {
-        accelerometer?.let {
-            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
-        }
-        gyroscope?.let {
-            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
-        }
-        magnetometer?.let {
-            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
-        }
+        accelerometer?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+        gyroscope?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
+        rotationVector?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
     }
 
     fun stop() {
