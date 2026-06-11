@@ -24,6 +24,7 @@ class MqttManager(
     private var isConnected = false
 
     private val telemetryTopic = "$firefighterId/telemetry"
+    private val networkTopic = "$firefighterId/network"
 
     fun connect(onSuccess: () -> Unit, onFailure: (String) -> Unit, onRegistered: () -> Unit , onTTS: (String) -> Unit ) {
         client = MqttClient.builder()
@@ -159,6 +160,52 @@ class MqttManager(
 
         publish(telemetryTopic, payload, qos = 2)
         //Log.d("MQTT", "Telemetria enviada — Activity: ${data.activityState}")
+    }
+
+    fun publishNetworkStatus(
+        mode: String,
+        quality: String,
+        networkType: String,
+        bitrateBps: Int?,
+        upstreamKbps: Int?,
+        signalStrength: Int?,
+        hasValidatedInternet: Boolean
+    ) {
+        if (!isConnected) return
+
+        val timestamp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            java.time.Instant.now().toString()
+        } else {
+            java.util.Date().toString()
+        }
+
+        val payload = JSONObject().apply {
+            put("DeviceId", deviceId)
+            put("MissionId", missionId)
+            put("FirefighterId", firefighterId)
+            put("Timestamp", timestamp)
+            put("Mode", mode)
+            put("Quality", quality)
+            put("NetworkType", networkType)
+            put("HasValidatedInternet", hasValidatedInternet)
+            if (bitrateBps != null) {
+                put("BitrateBps", bitrateBps)
+            } else {
+                put("BitrateBps", JSONObject.NULL)
+            }
+            if (upstreamKbps != null) {
+                put("UpstreamKbps", upstreamKbps)
+            } else {
+                put("UpstreamKbps", JSONObject.NULL)
+            }
+            if (signalStrength != null) {
+                put("SignalStrength", signalStrength)
+            } else {
+                put("SignalStrength", JSONObject.NULL)
+            }
+        }.toString()
+
+        publish(networkTopic, payload, qos = 1)
     }
 
     private fun publish(topic: String, payload: String, qos: Int) {

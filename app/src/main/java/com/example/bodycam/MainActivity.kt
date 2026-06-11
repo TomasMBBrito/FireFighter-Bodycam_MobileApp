@@ -1,11 +1,18 @@
 package com.example.bodycam
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import android.os.PowerManager
 import android.widget.Button
 import android.widget.TextView
@@ -17,6 +24,7 @@ import androidx.core.content.ContextCompat
 import com.example.bodycam.sensors.SensorData
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.MultipartBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,6 +32,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import org.webrtc.EglBase
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import android.content.pm.ActivityInfo
 
@@ -52,12 +61,69 @@ class MainActivity : AppCompatActivity() {
     private lateinit var wakeLock: PowerManager.WakeLock
 
     private var isStreaming = false
+    private var streamMode = StreamMode.OFFLINE
+    private var badNetworkSinceMs: Long? = null
+    private var recoveredNetworkSinceMs: Long? = null
+    private var isUploadingSnapshot = false
+    private val networkStatusHandler = Handler(Looper.getMainLooper())
+    private val snapshotHandler = Handler(Looper.getMainLooper())
+    private val networkStatusRunnable = object : Runnable {
+        override fun run() {
+            if (isStreaming) {
+                val snapshot = currentNetworkSnapshot()
+                val targetBitrate = bitrateForQuality(snapshot.quality)
+                if (streamMode == StreamMode.LIVE) {
+                    webRtcManager.setVideoBitrate(targetBitrate)
+                }
+                updateFallbackState(snapshot)
+                publishStreamNetworkStatus(
+                    mode = streamMode.name,
+                    networkSnapshot = snapshot,
+                    bitrateBps = targetBitrate
+                )
+                networkStatusHandler.postDelayed(this, NETWORK_STATUS_INTERVAL_MS)
+            }
+        }
+    }
+    private val snapshotRunnable = object : Runnable {
+        override fun run() {
+            if (isStreaming && streamMode == StreamMode.SNAPSHOT) {
+                captureAndUploadSnapshot()
+                snapshotHandler.postDelayed(this, SNAPSHOT_INTERVAL_MS)
+            }
+        }
+    }
     private lateinit var firefighterId: String
     private lateinit var missionId: String
     private lateinit var userId : String
     private lateinit var role : String
 
     private val ip = "100.102.144.13"
+
+    companion object {
+        private const val NETWORK_STATUS_INTERVAL_MS = 5_000L
+        private const val SNAPSHOT_INTERVAL_MS = 5_000L
+        private const val BAD_NETWORK_FALLBACK_MS = 15_000L
+        private const val RECOVERY_NETWORK_MS = 30_000L
+        private const val SNAPSHOT_JPEG_QUALITY = 70
+        private const val GOOD_UPSTREAM_KBPS = 1_000
+        private const val WEAK_UPSTREAM_KBPS = 250
+    }
+
+    private enum class StreamMode {
+        OFFLINE,
+        CONNECTING,
+        LIVE,
+        SNAPSHOT
+    }
+
+    private data class NetworkSnapshot(
+        val type: String,
+        val quality: String,
+        val upstreamKbps: Int?,
+        val signalStrength: Int?,
+        val hasValidatedInternet: Boolean
+    )
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -108,8 +174,31 @@ class MainActivity : AppCompatActivity() {
             context        = this,
             eglBase        = eglBase,
             whipUrl        = whipUrl,
-            onConnected    = { runOnUiThread { Toast.makeText(this, "Stream ligado!", Toast.LENGTH_SHORT).show() } },
-            onDisconnected = { runOnUiThread { handleStreamStopped() } },
+            onConnected    = {
+                runOnUiThread {
+                    streamMode = StreamMode.LIVE
+                    Toast.makeText(this, "Stream ligado!", Toast.LENGTH_SHORT).show()
+                    publishStreamNetworkStatus(
+                        mode = StreamMode.LIVE.name,
+                        networkSnapshot = currentNetworkSnapshot(),
+                        bitrateBps = WebRTCManager.DEFAULT_VIDEO_BITRATE_BPS
+                    )
+                }
+            },
+            onDisconnected = {
+                runOnUiThread {
+                    if (!isStreaming || streamMode == StreamMode.SNAPSHOT) {
+                        return@runOnUiThread
+                    }
+
+                    publishStreamNetworkStatus(
+                        mode = StreamMode.SNAPSHOT.name,
+                        networkSnapshot = currentNetworkSnapshot().copy(quality = "BAD"),
+                        bitrateBps = null
+                    )
+                    switchToSnapshotMode()
+                }
+            },
         )
 
         // Location
@@ -195,6 +284,227 @@ class MainActivity : AppCompatActivity() {
     private fun initWebRTC() {
         webRtcManager.init()
         webRtcManager.localVideoTrack?.addSink(localRenderer)
+    }
+
+    private fun currentNetworkSnapshot(): NetworkSnapshot {
+        val connectivityManager =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork
+            ?: return NetworkSnapshot("OFFLINE", "BAD", null, null, false)
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+            ?: return NetworkSnapshot("UNKNOWN", "UNKNOWN", null, null, false)
+
+        val networkType = when {
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "CELLULAR"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WIFI"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ETHERNET"
+            else -> "UNKNOWN"
+        }
+
+        val hasValidatedInternet =
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val upstreamKbps = capabilities.linkUpstreamBandwidthKbps.takeIf { it > 0 }
+        val signalStrength = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            capabilities.signalStrength
+                .takeIf { it != NetworkCapabilities.SIGNAL_STRENGTH_UNSPECIFIED }
+        } else {
+            null
+        }
+
+        return NetworkSnapshot(
+            type = networkType,
+            quality = calculateNetworkQuality(
+                hasValidatedInternet = hasValidatedInternet,
+                upstreamKbps = upstreamKbps,
+                signalStrength = signalStrength
+            ),
+            upstreamKbps = upstreamKbps,
+            signalStrength = signalStrength,
+            hasValidatedInternet = hasValidatedInternet
+        )
+    }
+
+    private fun publishStreamNetworkStatus(
+        mode: String,
+        networkSnapshot: NetworkSnapshot,
+        bitrateBps: Int?
+    ) {
+        mqttManager.publishNetworkStatus(
+            mode = mode,
+            quality = networkSnapshot.quality,
+            networkType = networkSnapshot.type,
+            bitrateBps = bitrateBps,
+            upstreamKbps = networkSnapshot.upstreamKbps,
+            signalStrength = networkSnapshot.signalStrength,
+            hasValidatedInternet = networkSnapshot.hasValidatedInternet
+        )
+    }
+
+    private fun calculateNetworkQuality(
+        hasValidatedInternet: Boolean,
+        upstreamKbps: Int?,
+        signalStrength: Int?
+    ): String {
+        if (!hasValidatedInternet) return "BAD"
+
+        if (upstreamKbps != null) {
+            return when {
+                upstreamKbps >= GOOD_UPSTREAM_KBPS -> "GOOD"
+                upstreamKbps >= WEAK_UPSTREAM_KBPS -> "WEAK"
+                else -> "BAD"
+            }
+        }
+
+        if (signalStrength != null) {
+            return when {
+                signalStrength >= -95 -> "GOOD"
+                signalStrength >= -110 -> "WEAK"
+                else -> "BAD"
+            }
+        }
+
+        return "UNKNOWN"
+    }
+
+    private fun bitrateForQuality(quality: String): Int {
+        return when (quality) {
+            "GOOD" -> WebRTCManager.GOOD_VIDEO_BITRATE_BPS
+            "BAD" -> WebRTCManager.WEAK_VIDEO_BITRATE_BPS
+            else -> WebRTCManager.DEFAULT_VIDEO_BITRATE_BPS
+        }
+    }
+
+    private fun updateFallbackState(snapshot: NetworkSnapshot) {
+        val now = System.currentTimeMillis()
+
+        if (snapshot.quality == "BAD") {
+            recoveredNetworkSinceMs = null
+            if (badNetworkSinceMs == null) {
+                badNetworkSinceMs = now
+            }
+
+            if (streamMode == StreamMode.LIVE &&
+                now - (badNetworkSinceMs ?: now) >= BAD_NETWORK_FALLBACK_MS
+            ) {
+                switchToSnapshotMode()
+            }
+            return
+        }
+
+        badNetworkSinceMs = null
+
+        if (snapshot.quality == "GOOD" || snapshot.quality == "WEAK") {
+            if (recoveredNetworkSinceMs == null) {
+                recoveredNetworkSinceMs = now
+            }
+
+            if (streamMode == StreamMode.SNAPSHOT &&
+                now - (recoveredNetworkSinceMs ?: now) >= RECOVERY_NETWORK_MS
+            ) {
+                switchToLiveMode()
+            }
+        } else {
+            recoveredNetworkSinceMs = null
+        }
+    }
+
+    private fun switchToSnapshotMode() {
+        streamMode = StreamMode.SNAPSHOT
+        webRtcManager.stopStream()
+        stopStreamingApi(firefighterId, missionId)
+        startSnapshotUploads()
+        publishStreamNetworkStatus(
+            mode = StreamMode.SNAPSHOT.name,
+            networkSnapshot = currentNetworkSnapshot().copy(quality = "BAD"),
+            bitrateBps = null
+        )
+    }
+
+    private fun switchToLiveMode() {
+        stopSnapshotUploads()
+        streamMode = StreamMode.LIVE
+        webRtcManager.startStream()
+        startStreamingApi(firefighterId, missionId)
+        publishStreamNetworkStatus(
+            mode = StreamMode.LIVE.name,
+            networkSnapshot = currentNetworkSnapshot(),
+            bitrateBps = WebRTCManager.DEFAULT_VIDEO_BITRATE_BPS
+        )
+    }
+
+    private fun startSnapshotUploads() {
+        snapshotHandler.removeCallbacks(snapshotRunnable)
+        snapshotHandler.post(snapshotRunnable)
+    }
+
+    private fun stopSnapshotUploads() {
+        snapshotHandler.removeCallbacks(snapshotRunnable)
+        isUploadingSnapshot = false
+    }
+
+    private fun captureAndUploadSnapshot() {
+        if (isUploadingSnapshot) return
+
+        val width = localRenderer.width
+        val height = localRenderer.height
+        if (width <= 0 || height <= 0) return
+
+        isUploadingSnapshot = true
+        val targetWidth = minOf(640, width)
+        val targetHeight = ((height.toFloat() / width.toFloat()) * targetWidth).toInt()
+            .coerceAtLeast(1)
+        val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+
+        PixelCopy.request(localRenderer, bitmap, { result ->
+            if (result == PixelCopy.SUCCESS) {
+                uploadSnapshot(bitmap)
+            } else {
+                bitmap.recycle()
+                isUploadingSnapshot = false
+            }
+        }, Handler(Looper.getMainLooper()))
+    }
+
+    private fun uploadSnapshot(bitmap: Bitmap) {
+        val output = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, SNAPSHOT_JPEG_QUALITY, output)
+        bitmap.recycle()
+
+        val imageBody = output.toByteArray()
+            .toRequestBody("image/jpeg".toMediaType())
+
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("FirefighterID", firefighterId)
+            .addFormDataPart("MissionID", missionId)
+            .addFormDataPart("Image", "snapshot.jpg", imageBody)
+            .build()
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/Mission/firefighter/snapshot")
+            .post(body)
+            .build()
+
+        OkHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                isUploadingSnapshot = false
+                android.util.Log.e("BODYCAM", "snapshot upload error: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.close()
+                isUploadingSnapshot = false
+            }
+        })
+    }
+
+    private fun startNetworkStatusUpdates() {
+        networkStatusHandler.removeCallbacks(networkStatusRunnable)
+        networkStatusHandler.post(networkStatusRunnable)
+    }
+
+    private fun stopNetworkStatusUpdates() {
+        networkStatusHandler.removeCallbacks(networkStatusRunnable)
     }
 
     private fun leaveMission() {
@@ -324,9 +634,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleStreamStart() {
+        streamMode = StreamMode.CONNECTING
         webRtcManager.startStream()
         isStreaming    = true
         btnStream.text = "Parar stream"
+        publishStreamNetworkStatus(
+            mode = StreamMode.CONNECTING.name,
+            networkSnapshot = currentNetworkSnapshot().copy(quality = "UNKNOWN"),
+            bitrateBps = WebRTCManager.DEFAULT_VIDEO_BITRATE_BPS
+        )
+        startNetworkStatusUpdates()
 
         startStreamingApi(firefighterId, missionId)
 
@@ -341,6 +658,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleStreamStop() {
+        isStreaming = false
+        streamMode = StreamMode.OFFLINE
+        stopSnapshotUploads()
         webRtcManager.stopStream()
         handleStreamStopped()
 
@@ -351,7 +671,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleStreamStopped() {
         isStreaming    = false
+        streamMode = StreamMode.OFFLINE
         btnStream.text = "Iniciar stream"
+        stopNetworkStatusUpdates()
+        stopSnapshotUploads()
+        publishStreamNetworkStatus(
+            mode = StreamMode.OFFLINE.name,
+            networkSnapshot = currentNetworkSnapshot().copy(quality = "UNKNOWN"),
+            bitrateBps = null
+        )
 
         stopStreamingApi(firefighterId, missionId)
     }
@@ -408,6 +736,7 @@ class MainActivity : AppCompatActivity() {
         telemetryManager.stop()
         locationFinder.stop()
         mqttManager.disconnect()
+        stopNetworkStatusUpdates()
         webRtcManager.release()
         localRenderer.release()
         eglBase.release()

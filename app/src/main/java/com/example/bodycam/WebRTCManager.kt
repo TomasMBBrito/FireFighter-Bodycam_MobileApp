@@ -7,7 +7,6 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.webrtc.*
-import org.webrtc.audio.JavaAudioDeviceModule
 
 class WebRTCManager(
     private val context: Context,
@@ -23,6 +22,14 @@ class WebRTCManager(
         private set
     //private var localAudioTrack: AudioTrack? = null
     private var videoCapturer: VideoCapturer? = null
+    private var videoSender: RtpSender? = null
+    private var whipOfferSent = false
+
+    companion object {
+        const val DEFAULT_VIDEO_BITRATE_BPS = 300_000
+        const val WEAK_VIDEO_BITRATE_BPS = 150_000
+        const val GOOD_VIDEO_BITRATE_BPS = 800_000
+    }
 
     fun init() {
         PeerConnectionFactory.initialize(
@@ -44,7 +51,7 @@ class WebRTCManager(
             context,
             videoSource.capturerObserver
         )
-        videoCapturer?.startCapture(1280, 720, 30)
+        videoCapturer?.startCapture(640, 360, 15)
         localVideoTrack = peerConnectionFactory.createVideoTrack("video0", videoSource)
 
         // Áudio
@@ -53,6 +60,7 @@ class WebRTCManager(
     }
 
     fun startStream() {
+        whipOfferSent = false
         createPeerConnection()
         createOffer()
     }
@@ -60,6 +68,8 @@ class WebRTCManager(
     fun stopStream() {
         peerConnection?.close()
         peerConnection = null
+        videoSender = null
+        whipOfferSent = false
     }
 
     fun release() {
@@ -102,7 +112,7 @@ class WebRTCManager(
                 override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
                     if (state == PeerConnection.IceGatheringState.COMPLETE) {
                         peerConnection?.localDescription?.let {
-                            sendWhipOffer(it.description)
+                            sendWhipOfferOnce(it.description)
                         }
                     }
                 }
@@ -115,8 +125,22 @@ class WebRTCManager(
             }
         )
 
-        localVideoTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
+        localVideoTrack?.let {
+            videoSender = peerConnection?.addTrack(it, listOf("stream0"))
+            setVideoBitrate(DEFAULT_VIDEO_BITRATE_BPS)
+        }
         //localAudioTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
+    }
+
+    fun setVideoBitrate(maxBitrateBps: Int) {
+        val sender = videoSender ?: return
+        val params = sender.parameters
+
+        params.encodings.forEach { encoding ->
+            encoding.maxBitrateBps = maxBitrateBps
+        }
+
+        sender.parameters = params
     }
 
     private fun preferH264(sdp: String): String {
@@ -172,7 +196,7 @@ class WebRTCManager(
 
                 peerConnection?.setLocalDescription(object : SdpObserver {
                     override fun onSetSuccess() {
-                        sendWhipOffer(h264Sdp)
+                        sendWhipOfferOnce(h264Sdp)
                     }
                     override fun onCreateSuccess(p0: SessionDescription?) {}
                     override fun onCreateFailure(p0: String?) {}
@@ -185,6 +209,12 @@ class WebRTCManager(
             }
             override fun onSetFailure(p0: String?) {}
         }, constraints)
+    }
+
+    private fun sendWhipOfferOnce(sdpOffer: String) {
+        if (whipOfferSent) return
+        whipOfferSent = true
+        sendWhipOffer(sdpOffer)
     }
 
     private fun sendWhipOffer(sdpOffer: String) {
