@@ -14,6 +14,7 @@ class FirefighterAdapter(
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvName: TextView = view.findViewById(R.id.tvFirefighterName)
+        val tvStation: TextView = view.findViewById(R.id.tvFirefighterStation)
         val btnSelect: Button = view.findViewById(R.id.btnSelectFirefighter)
     }
 
@@ -26,6 +27,7 @@ class FirefighterAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         holder.tvName.text = item.name
+        holder.tvStation.text = item.station
         holder.btnSelect.setOnClickListener { onSelect(item) }
     }
 

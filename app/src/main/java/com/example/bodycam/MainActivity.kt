@@ -98,7 +98,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "100.102.144.13"
+    private val ip = "100.126.183.52"
 
     companion object {
         private const val NETWORK_STATUS_INTERVAL_MS = 5_000L

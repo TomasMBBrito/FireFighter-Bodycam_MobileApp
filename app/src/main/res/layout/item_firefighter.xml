@@ -6,17 +6,32 @@
     android:padding="12dp"
     android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/tvFirefighterName"
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"/>
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvFirefighterName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"/>
+
+        <TextView
+            android:id="@+id/tvFirefighterStation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"/>
+
+    </LinearLayout>
 
     <Button
         android:id="@+id/btnSelectFirefighter"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Selecionar"/>
+
 </LinearLayout>

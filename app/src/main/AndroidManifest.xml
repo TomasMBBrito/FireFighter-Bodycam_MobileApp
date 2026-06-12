@@ -25,7 +25,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bodycam"
         android:networkSecurityConfig="@xml/network_security_config">
-        <activity android:name=".FirefighterActivity"
+        <activity android:name=".MissionActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -33,8 +33,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".MissionActivity" />
-
+        <activity android:name=".FirefighterActivity" />
         <activity android:name=".MainActivity" />
         <service
             android:name=".ForegroundStreamService"
