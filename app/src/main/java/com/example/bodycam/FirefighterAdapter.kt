@@ -28,7 +28,15 @@ class FirefighterAdapter(
         val item = items[position]
         holder.tvName.text = item.name
         holder.tvStation.text = item.station
-        holder.btnSelect.setOnClickListener { onSelect(item) }
+
+        if (item.online) {
+            holder.btnSelect.isEnabled = false
+            holder.btnSelect.text = "Online"
+        } else {
+            holder.btnSelect.isEnabled = true
+            holder.btnSelect.text = "Selecionar"
+            holder.btnSelect.setOnClickListener { onSelect(item) }
+        }
     }
 
     override fun getItemCount() = items.size

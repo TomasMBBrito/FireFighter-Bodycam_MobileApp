@@ -87,7 +87,8 @@ class FirefighterActivity : AppCompatActivity() {
                         name = obj.getString("name"),
                         role = obj.getString("roleInMission"),
                         username = obj.optString("username", ""),
-                        station = obj.optString("station", "Unknown")
+                        station = obj.optString("station", "Unknown"),
+                        online = obj.optBoolean("online", false)
                     ))
                 }
                 onResult(list)
@@ -120,7 +121,8 @@ class FirefighterActivity : AppCompatActivity() {
                         name = obj.getString("name"),
                         role = obj.getString("role"),
                         username = obj.getString("username"),
-                        station = obj.optString("station", "Unknown")
+                        station = obj.optString("station", "Unknown"),
+                        online = obj.optBoolean("online", false)
                     ))
                 }
                 onResult(list)
@@ -188,6 +190,7 @@ class FirefighterActivity : AppCompatActivity() {
                         200 -> {
                             val resJson = JSONObject(resBody)
                             val userId = resJson.getString("userId")
+                            //setOnlineStatus(userId, true)
                             if (isSolo) {
                                 createSoloMission(firefighter, userId)
                             } else {
@@ -309,5 +312,6 @@ data class FirefighterItem(
     val name: String,
     val role: String,
     val username: String,
-    val station: String = "Unknown"
+    val station: String = "Unknown",
+    val online: Boolean = false
 )

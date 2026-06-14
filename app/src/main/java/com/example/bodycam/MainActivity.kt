@@ -646,6 +646,7 @@ class MainActivity : AppCompatActivity() {
         startNetworkStatusUpdates()
 
         startStreamingApi(firefighterId, missionId)
+        setOnlineStatus(true)
 
         val intent = Intent(this, ForegroundStreamService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -682,6 +683,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         stopStreamingApi(firefighterId, missionId)
+        setOnlineStatus(false)
     }
 
     private fun showLeaveMissionConfirmation() {
@@ -727,6 +729,28 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun setOnlineStatus(online: Boolean) {
+        val client = OkHttpClient()
+
+        val body = online.toString()
+            .toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/User/$userId/status")
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                android.util.Log.e("BODYCAM", "Erro ao atualizar status online: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                android.util.Log.d("BODYCAM", "Online status set to $online")
+            }
+        })
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         if (::wakeLock.isInitialized && wakeLock.isHeld) {
@@ -740,6 +764,10 @@ class MainActivity : AppCompatActivity() {
         webRtcManager.release()
         localRenderer.release()
         eglBase.release()
+
+        if (isStreaming) {
+            setOnlineStatus(false)
+        }
     }
 }
 
