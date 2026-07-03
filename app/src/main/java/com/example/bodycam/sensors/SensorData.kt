@@ -22,5 +22,8 @@ data class SensorData(
     val orientation: String?,
     val activityState: String?,
 
-    val compassBearing: Float?
+    val compassBearing: Float?,
+
+    // BLE Sensors
+    val bodyTemperature: Float?
 )

@@ -155,6 +155,8 @@ class MqttManager(
                 put("Orientation", data.orientation)
                 put("ActivityState", data.activityState)
                 put("CompassBearing", data.compassBearing)
+
+                put("BodyTemperature", data.bodyTemperature)
             }
         }.toString()
 

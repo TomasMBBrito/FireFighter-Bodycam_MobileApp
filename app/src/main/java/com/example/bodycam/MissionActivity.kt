@@ -13,7 +13,7 @@ import java.io.IOException
 
 class MissionActivity : AppCompatActivity() {
 
-    private val ip = "100.126.183.52"
+    private val ip = "100.102.144.13"
     private lateinit var locationFinder: LocationFinder
 
     override fun onCreate(savedInstanceState: Bundle?) {

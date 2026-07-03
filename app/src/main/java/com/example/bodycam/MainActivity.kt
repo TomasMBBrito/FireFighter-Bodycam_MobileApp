@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mqttManager: MqttManager
     private lateinit var speechManager: SpeechManager
     private lateinit var locationFinder: LocationFinder
+    private lateinit var bleManager: BleManager
 
     private lateinit var wakeLock: PowerManager.WakeLock
 
@@ -98,7 +99,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "100.126.183.52"
+    private val ip = "100.102.144.13"
 
     companion object {
         private const val NETWORK_STATUS_INTERVAL_MS = 5_000L
@@ -127,13 +128,40 @@ class MainActivity : AppCompatActivity() {
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val cameraOk   = permissions[Manifest.permission.CAMERA] == true
-            val audioOk    = permissions[Manifest.permission.RECORD_AUDIO] == true
-            val locationOk = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
 
-            if (locationOk) locationFinder.start()
-            if (cameraOk && audioOk) initWebRTC()
-            else Toast.makeText(this, "Permissoes necessarias", Toast.LENGTH_SHORT).show()
+            val cameraOk =
+                permissions[Manifest.permission.CAMERA] == true
+
+            val audioOk =
+                permissions[Manifest.permission.RECORD_AUDIO] == true
+
+            val locationOk =
+                permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+
+            val bluetoothScanOk =
+                permissions[Manifest.permission.BLUETOOTH_SCAN] == true
+
+            val bluetoothConnectOk =
+                permissions[Manifest.permission.BLUETOOTH_CONNECT] == true
+
+            if (locationOk)
+                locationFinder.start()
+
+            if (cameraOk && audioOk)
+                initWebRTC()
+
+            if (bluetoothScanOk && bluetoothConnectOk)
+                bleManager.connect()
+
+            if (!(cameraOk && audioOk && locationOk &&
+                        bluetoothScanOk && bluetoothConnectOk)) {
+
+                Toast.makeText(
+                    this,
+                    "Permissões necessárias",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -206,6 +234,7 @@ class MainActivity : AppCompatActivity() {
 
         tts = TextToSpeech(this)
 
+        bleManager = BleManager(this)
 
         // MQTT
         mqttManager = MqttManager(
@@ -218,8 +247,9 @@ class MainActivity : AppCompatActivity() {
 
         // Telemetry
         telemetryManager = TelemetryManager(
-            context  = this,
+            context = this,
             location = locationFinder,
+            bleManager = bleManager,
             onUpdate = { data ->
                 runOnUiThread { updateSensorUI(data) }
                 mqttManager.publishTelemetry(data)
@@ -259,12 +289,15 @@ class MainActivity : AppCompatActivity() {
         if (hasPermissions()) {
             initWebRTC()
             locationFinder.start()
+            bleManager.connect()
         } else {
             requestPermissions.launch(
                 arrayOf(
                     Manifest.permission.CAMERA,
                     Manifest.permission.RECORD_AUDIO,
-                    Manifest.permission.ACCESS_FINE_LOCATION
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT
                 )
             )
         }
@@ -279,7 +312,9 @@ class MainActivity : AppCompatActivity() {
     private fun hasPermissions() =
         ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     private fun initWebRTC() {
         webRtcManager.init()
@@ -721,12 +756,11 @@ class MainActivity : AppCompatActivity() {
         tvMotion.setTextColor(
             if (data.isMoving == true) Color.parseColor("#FFAA00") else Color.WHITE
         )
-
-        // Activity / Orientation
-        tvActivity.text = "Estado: ${data.activityState ?: "N/A"} | ${data.orientation ?: "N/A"} | Queda: ${if (data.fallDetected == true) "DETECTADA" else "Nenhuma"}"
-        tvActivity.setTextColor(
-            if (data.fallDetected == true) Color.parseColor("#FF4444") else Color.WHITE
-        )
+        //Mudar variavel Activity para temperatura
+        tvActivity.text =
+            "Estado: ${data.activityState ?: "N/A"} | " +
+                    "Temp: ${data.bodyTemperature?.let { "%.1f°C".format(it) } ?: "N/A"} | " +
+                    "Queda: ${if (data.fallDetected == true) "DETECTADA" else "Nenhuma"}"
     }
 
     private fun setOnlineStatus(online: Boolean) {
@@ -762,6 +796,7 @@ class MainActivity : AppCompatActivity() {
         mqttManager.disconnect()
         stopNetworkStatusUpdates()
         webRtcManager.release()
+        bleManager.disconnect()
         localRenderer.release()
         eglBase.release()
 
@@ -770,5 +805,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
-private fun Call.enqueue(responseCallback: Any) {}

@@ -14,6 +14,7 @@ import kotlin.math.sqrt
 class TelemetryManager(
     context: Context,
     private val location: LocationFinder,
+    private val bleManager: BleManager,
     private val onUpdate: (SensorData) -> Unit
 ) {
     private val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
@@ -63,6 +64,8 @@ class TelemetryManager(
 
             val now = System.currentTimeMillis()
             if (now - lastPublishTime >= 1000L) {
+                bleManager.readTemperature()
+
                 lastPublishTime = now
                 onUpdate(buildPayload())
             }
@@ -147,8 +150,11 @@ class TelemetryManager(
             activityState = activityState,
             gpsLat = location.currentLat,
             gpsLng = location.currentLng,
-            compassBearing = compassBearing
+            compassBearing = compassBearing,
+
+            bodyTemperature = bleManager.latestTemperature
         )
+
         Log.d("TelemetryManager", "Payload compassBearing: ${payload.compassBearing}")
         return payload
     }
