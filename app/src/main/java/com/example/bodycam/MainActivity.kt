@@ -756,11 +756,10 @@ class MainActivity : AppCompatActivity() {
         tvMotion.setTextColor(
             if (data.isMoving == true) Color.parseColor("#FFAA00") else Color.WHITE
         )
-        //Mudar variavel Activity para temperatura
+
         tvActivity.text =
-            "Estado: ${data.activityState ?: "N/A"} | " +
-                    "Temp: ${data.bodyTemperature?.let { "%.1f°C".format(it) } ?: "N/A"} | " +
-                    "Queda: ${if (data.fallDetected == true) "DETECTADA" else "Nenhuma"}"
+            "Hr: ${data.heartRate ?: "N/A"} | " +
+                    "Temp: ${data.bodyTemperature?.let { "%.1f°C".format(it) } ?: "N/A"}"
     }
 
     private fun setOnlineStatus(online: Boolean) {

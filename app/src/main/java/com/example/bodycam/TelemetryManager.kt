@@ -32,10 +32,19 @@ class TelemetryManager(
     private var gyroZ: Float? = null
 
     private var compassBearing: Float? = null
-
-    private var freefallDetected = false
-    private var lastFallTime = 0L
     private var lastPublishTime = 0L
+
+    private val motionBuffer = ArrayDeque<Float>()
+    private val bufferWindowSize = 15
+
+    private var currentlyMoving = false
+    private val movingEnterThreshold = 0.6f
+    private val movingExitThreshold = 0.3f
+
+    private var pendingActivityState: String? = null
+    private var pendingActivityCount = 0
+    private var confirmedActivityState: String? = null
+    private val activityConfirmCount = 3
 
     init {
         Log.d("TelemetryManager", "RotationVector available: ${rotationVector != null}")
@@ -51,6 +60,7 @@ class TelemetryManager(
                     accelX = event.values[0]
                     accelY = event.values[1]
                     accelZ = event.values[2]
+                    updateMotionBuffer()
                 }
                 Sensor.TYPE_GYROSCOPE -> {
                     gyroX = event.values[0]
@@ -64,7 +74,7 @@ class TelemetryManager(
 
             val now = System.currentTimeMillis()
             if (now - lastPublishTime >= 1000L) {
-                bleManager.readTemperature()
+                bleManager.readSensorData()
 
                 lastPublishTime = now
                 onUpdate(buildPayload())
@@ -74,6 +84,59 @@ class TelemetryManager(
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
             Log.d("TelemetryManager", "${sensor?.name} accuracy: $accuracy")
         }
+    }
+
+    private fun updateMotionBuffer() {
+        val x = accelX ?: return
+        val y = accelY ?: return
+        val z = accelZ ?: return
+
+        val magnitude = sqrt(x * x + y * y + z * z)
+        val instantMotion = abs(magnitude - 9.8f)
+
+        motionBuffer.addLast(instantMotion)
+        if (motionBuffer.size > bufferWindowSize) {
+            motionBuffer.removeFirst()
+        }
+    }
+
+    private fun smoothedMotionLevel(): Float? {
+        if (motionBuffer.isEmpty()) return null
+        return motionBuffer.average().toFloat()
+    }
+
+    private fun updateIsMoving(smoothed: Float?): Boolean? {
+        if (smoothed == null) return null
+        currentlyMoving = if (currentlyMoving) {
+            smoothed > movingExitThreshold
+        } else {
+            smoothed > movingEnterThreshold
+        }
+        return currentlyMoving
+    }
+
+    private fun updateActivityState(smoothed: Float?): String? {
+        if (smoothed == null) return confirmedActivityState
+
+        val candidate = when {
+            smoothed < 0.3f -> "Still"
+            smoothed < 2.0f -> "Walking"
+            smoothed < 5.0f -> "Running"
+            else -> "High activity"
+        }
+
+        if (candidate == pendingActivityState) {
+            pendingActivityCount++
+        } else {
+            pendingActivityState = candidate
+            pendingActivityCount = 1
+        }
+
+        if (pendingActivityCount >= activityConfirmCount) {
+            confirmedActivityState = candidate
+        }
+
+        return confirmedActivityState
     }
 
     private fun calculateBearingFromRotationVector(rotationValues: FloatArray) {
@@ -94,47 +157,11 @@ class TelemetryManager(
     }
 
     private fun buildPayload(): SensorData {
-        val magnitude = if (accelX != null && accelY != null && accelZ != null) {
-            sqrt(accelX!! * accelX!! + accelY!! * accelY!! + accelZ!! * accelZ!!)
-        } else null
+        val motionLevel = smoothedMotionLevel()
+        val isMoving = updateIsMoving(motionLevel)
+        val activityState = updateActivityState(motionLevel)
 
-        val motionLevel = magnitude?.let { abs(it - 9.8f) }
-        val isMoving = motionLevel?.let { it > 0.5f }
-
-        val fallDetected = if (magnitude != null) {
-            val now = System.currentTimeMillis()
-            if (magnitude < 2.0f) {
-                freefallDetected = true
-                lastFallTime = now
-            }
-            if (freefallDetected && magnitude > 20.0f && (now - lastFallTime) < 500) {
-                freefallDetected = false
-                true
-            } else {
-                if (now - lastFallTime > 2000) freefallDetected = false
-                false
-            }
-        } else null
-
-        val orientation = if (accelX != null && accelY != null && accelZ != null) {
-            when {
-                accelZ!! > 8f -> "Face up"
-                accelZ!! < -8f -> "Face down"
-                accelY!! > 8f -> "Portrait"
-                accelY!! < -8f -> "Portrait reversed"
-                accelX!! > 8f -> "Landscape right"
-                else -> "Landscape left"
-            }
-        } else null
-
-        val activityState = motionLevel?.let {
-            when {
-                it < 0.3f -> "Still"
-                it < 2.0f -> "Walking"
-                it < 5.0f -> "Running"
-                else -> "High activity"
-            }
-        }
+        Log.d("Telemetry", "Latest HR = ${bleManager.latestHeartRate}")
 
         val payload = SensorData(
             accelX = accelX,
@@ -145,14 +172,13 @@ class TelemetryManager(
             gyroZ = gyroZ,
             motionLevel = motionLevel,
             isMoving = isMoving,
-            fallDetected = fallDetected,
-            orientation = orientation,
             activityState = activityState,
             gpsLat = location.currentLat,
             gpsLng = location.currentLng,
             compassBearing = compassBearing,
 
-            bodyTemperature = bleManager.latestTemperature
+            bodyTemperature = bleManager.latestTemperature,
+            heartRate = bleManager.latestHeartRate,
         )
 
         Log.d("TelemetryManager", "Payload compassBearing: ${payload.compassBearing}")
@@ -167,5 +193,10 @@ class TelemetryManager(
 
     fun stop() {
         sensorManager.unregisterListener(listener)
+        motionBuffer.clear()
+        pendingActivityState = null
+        pendingActivityCount = 0
+        confirmedActivityState = null
+        currentlyMoving = false
     }
 }

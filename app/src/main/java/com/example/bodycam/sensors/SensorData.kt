@@ -18,12 +18,11 @@ data class SensorData(
     // Motion / Fall
     val motionLevel: Float?,
     val isMoving: Boolean?,
-    val fallDetected: Boolean?,
-    val orientation: String?,
     val activityState: String?,
 
     val compassBearing: Float?,
 
     // BLE Sensors
-    val bodyTemperature: Float?
+    val bodyTemperature: Float?,
+    val heartRate: Int?,
 )

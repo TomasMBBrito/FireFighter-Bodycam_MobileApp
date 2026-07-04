@@ -134,9 +134,7 @@ class MqttManager(
 
                 put("MotionLevel", JSONObject.NULL)
                 put("IsMoving", data.isMoving)
-                put("FallDetected", JSONObject.NULL)
 
-                put("Orientation", JSONObject.NULL)
                 put("ActivityState", JSONObject.NULL)
                 put("CompassBearing", data.compassBearing)
             } else {
@@ -150,13 +148,12 @@ class MqttManager(
 
                 put("MotionLevel", data.motionLevel)
                 put("IsMoving", data.isMoving)
-                put("FallDetected", data.fallDetected)
 
-                put("Orientation", data.orientation)
                 put("ActivityState", data.activityState)
                 put("CompassBearing", data.compassBearing)
 
                 put("BodyTemperature", data.bodyTemperature)
+                put("HeartRate", data.heartRate)
             }
         }.toString()
 

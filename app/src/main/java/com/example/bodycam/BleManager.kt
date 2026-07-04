@@ -8,6 +8,7 @@ import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -32,14 +33,21 @@ class BleManager(
     private val scanner: BluetoothLeScanner =
         bluetoothAdapter.bluetoothLeScanner
 
-    private var temperatureCharacteristic: BluetoothGattCharacteristic? = null
+    private var shouldReconnect = true
+
+    private var isScanning = false
+
+    private var sensorCharacteristic: BluetoothGattCharacteristic? = null
 
     private var bluetoothGatt: BluetoothGatt? = null
 
     var latestTemperature: Float? = null
         private set
 
-    var onTemperatureReceived: ((Float) -> Unit)? = null
+    var latestHeartRate: Int? = null
+        private set
+
+    var onSensorDataReceived: ((Float?, Int?) -> Unit)? = null
 
     private val scanCallback = object : ScanCallback() {
 
@@ -49,11 +57,12 @@ class BleManager(
 
             Log.d("BLE", "Found: ${device.name} (${device.address})")
 
-            if (device.name == "ESP32 DHT Sensor") {
+            if (device.name == "Firefighter Sensor") {
 
                 Log.d("BLE", "ESP32 found!")
 
                 scanner.stopScan(this)
+                isScanning = false
 
                 connectToDevice(device)
             }
@@ -61,6 +70,8 @@ class BleManager(
     }
 
     fun connect() {
+
+        shouldReconnect = true
 
         Log.d("BLE", "connect() was called")
 
@@ -74,6 +85,10 @@ class BleManager(
         }
 
         Log.d("BLE", "Starting scan...")
+
+        if (isScanning) return
+
+        isScanning = true
 
         scanner.startScan(scanCallback)
     }
@@ -116,6 +131,19 @@ class BleManager(
 
                 Log.d("BLE", "Disconnected")
 
+                bluetoothGatt?.close()
+                bluetoothGatt = null
+
+                if (shouldReconnect) {
+
+                    Log.d("BLE", "Reconnecting in 2 seconds...")
+
+                    android.os.Handler(context.mainLooper).postDelayed({
+
+                        connect()
+
+                    }, 2000)
+                }
             }
         }
 
@@ -137,16 +165,14 @@ class BleManager(
 
             Log.d("BLE", "Service found!")
 
-            temperatureCharacteristic = service.getCharacteristic(
+            sensorCharacteristic = service.getCharacteristic(
                 UUID.fromString("abcdef01-1234-1234-1234-1234567890ab")
             )
 
-            if (temperatureCharacteristic == null) {
-                Log.e("BLE", "Temperature characteristic not found!")
+            if (sensorCharacteristic == null) {
+                Log.e("BLE", "Sensor characteristic not found!")
                 return
             }
-
-            Log.d("BLE", "Characteristic found!")
         }
 
         override fun onCharacteristicRead(
@@ -155,29 +181,28 @@ class BleManager(
             value: ByteArray,
             status: Int
         ) {
+            if (status != BluetoothGatt.GATT_SUCCESS) return
 
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.e("BLE", "Failed to read characteristic")
-                return
+            if (characteristic.uuid == UUID.fromString("abcdef01-1234-1234-1234-1234567890ab")) {
+                val raw = value.decodeToString()
+                val parts = raw.split(",")
+
+                val temp = parts.getOrNull(0)?.toFloatOrNull()
+                val hr = parts.getOrNull(1)?.toIntOrNull()
+
+                if (temp != null) latestTemperature = temp
+                if (hr != null) latestHeartRate = hr
+
+                Log.d("BLE", "Sensor data received: temp=$temp hr=$hr")
+
+                onSensorDataReceived?.invoke(temp, hr)
             }
-
-            val temp = value.decodeToString().toFloatOrNull()
-
-            if (temp == null) {
-                Log.e("BLE", "Invalid temperature received")
-                return
-            }
-
-            latestTemperature = temp
-
-            onTemperatureReceived?.invoke(temp)
         }
     }
 
-    fun readTemperature() {
-
+    fun readSensorData() {
         val gatt = bluetoothGatt ?: return
-        val characteristic = temperatureCharacteristic ?: return
+        val characteristic = sensorCharacteristic ?: return
 
         if (ContextCompat.checkSelfPermission(
                 context,
@@ -191,6 +216,9 @@ class BleManager(
     }
 
     fun disconnect() {
+
+        shouldReconnect = false
+
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
