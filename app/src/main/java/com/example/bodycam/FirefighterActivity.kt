@@ -18,7 +18,7 @@ import java.io.IOException
 
 class FirefighterActivity : AppCompatActivity() {
 
-    private val ip = "100.102.144.13"
+    private val ip = "100.126.183.52"
     private var missionId: String = ""
     private var missionTitle: String = ""
     private var isSolo: Boolean = false
@@ -41,25 +41,33 @@ class FirefighterActivity : AppCompatActivity() {
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerFirefighters)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        if (isSolo) {
-            // Solo — mostra todos os firefighters
-            fetchAllFirefighters { firefighters ->
-                runOnUiThread {
-                    recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
-                        showPasswordDialog(firefighter)
-                    }
-                }
-            }
-        } else {
-            // Missão normal — mostra só os firefighters da missão
-            fetchMissionFirefighters { firefighters ->
-                runOnUiThread {
-                    recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
-                        showPasswordDialog(firefighter)
-                    }
-                }
+        fetchAllFirefighters { firefighters ->
+            runOnUiThread {
+               recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
+                    showPasswordDialog(firefighter)
+               }
             }
         }
+
+//        if (isSolo) {
+//            // Solo — mostra todos os firefighters
+//            fetchAllFirefighters { firefighters ->
+//                runOnUiThread {
+//                    recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
+//                        showPasswordDialog(firefighter)
+//                    }
+//                }
+//            }
+//        } else {
+//            // Missão normal — mostra só os firefighters da missão
+//            fetchMissionFirefighters { firefighters ->
+//                runOnUiThread {
+//                    recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
+//                        showPasswordDialog(firefighter)
+//                    }
+//                }
+//            }
+//        }
     }
 
     private fun fetchMissionFirefighters(onResult: (List<FirefighterItem>) -> Unit) {
@@ -168,6 +176,8 @@ class FirefighterActivity : AppCompatActivity() {
             put("password", password)
         }
 
+        android.util.Log.d("LOGIN_DEBUG", "Enviando: ${json}")
+
         val body = json.toString()
             .toRequestBody("application/json; charset=utf-8".toMediaType())
 
@@ -185,16 +195,19 @@ class FirefighterActivity : AppCompatActivity() {
 
             override fun onResponse(call: Call, response: Response) {
                 val resBody = response.body?.string() ?: ""
+                android.util.Log.d("LOGIN_DEBUG", "Status: ${response.code}, Body: $resBody")
                 runOnUiThread {
                     when (response.code) {
                         200 -> {
                             val resJson = JSONObject(resBody)
                             val userId = resJson.getString("userId")
+                            val token = resJson.getString("token")
+                            TokenManager.token = token
                             //setOnlineStatus(userId, true)
                             if (isSolo) {
-                                createSoloMission(firefighter, userId)
+                                createSoloMission(firefighter, userId, token)
                             } else {
-                                associateAndNavigate(firefighter, userId)
+                                associateAndNavigate(firefighter, userId, token)
                             }
                         }
                         401 -> Toast.makeText(this@FirefighterActivity, "Password incorreta.", Toast.LENGTH_SHORT).show()
@@ -206,7 +219,7 @@ class FirefighterActivity : AppCompatActivity() {
         })
     }
 
-    private fun createSoloMission(firefighter: FirefighterItem, userId: String) {
+    private fun createSoloMission(firefighter: FirefighterItem, userId: String, token: String) {
         val client = OkHttpClient()
 
         val lat = locationFinder.currentLat
@@ -223,6 +236,7 @@ class FirefighterActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/Mission")
+            .addHeader("Authorization", "Bearer $token")
             .post(payload.toRequestBody("application/json".toMediaType()))
             .build()
 
@@ -244,12 +258,12 @@ class FirefighterActivity : AppCompatActivity() {
                 val json = JSONObject(body)
                 missionId = json.getString("missionId")
                 missionTitle = json.getString("title")
-                associateAndNavigate(firefighter, userId)
+                associateAndNavigate(firefighter, userId,token)
             }
         })
     }
 
-    private fun associateAndNavigate(firefighter: FirefighterItem, userId: String) {
+    private fun associateAndNavigate(firefighter: FirefighterItem, userId: String, token: String) {
         val client = OkHttpClient()
 
         val payload = JSONObject().apply {
@@ -259,6 +273,7 @@ class FirefighterActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/Mission/associate")
+            .addHeader("Authorization", "Bearer $token")
             .post(payload.toRequestBody("application/json".toMediaType()))
             .build()
 

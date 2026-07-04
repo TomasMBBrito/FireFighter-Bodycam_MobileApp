@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
-    private val ip = "100.102.144.13"
+    private val ip = "100.126.183.52"
 
     companion object {
         private const val NETWORK_STATUS_INTERVAL_MS = 5_000L
@@ -517,6 +517,7 @@ class MainActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/Mission/firefighter/snapshot")
+            .addHeader("Authorization", TokenManager.authHeader() ?: "")
             .post(body)
             .build()
 
@@ -553,6 +554,7 @@ class MainActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/Mission/leave")
+            .addHeader("Authorization", TokenManager.authHeader() ?: "")
             .post(
                 payload.toRequestBody(
                     "application/json".toMediaType()
@@ -626,6 +628,7 @@ class MainActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/Mission/firefighter/start-stream")
+            .addHeader("Authorization", TokenManager.authHeader() ?: "")
             .post(body)
             .build()
 
@@ -654,6 +657,7 @@ class MainActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/Mission/firefighter/stop-stream")
+            .addHeader("Authorization", TokenManager.authHeader() ?: "")
             .post(body)
             .build()
 
@@ -770,6 +774,7 @@ class MainActivity : AppCompatActivity() {
 
         val request = Request.Builder()
             .url("http://$ip:5081/api/User/$userId/status")
+            .addHeader("Authorization", TokenManager.authHeader() ?: "")
             .post(body)
             .build()
 
