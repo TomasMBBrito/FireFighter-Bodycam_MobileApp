@@ -50,6 +50,7 @@ class MqttManager(
                             ?.topicFilter("$firefighterId/tts")
                             ?.callback { msg ->
                                 val text = String(msg.payloadAsBytes)
+                                Log.d("TTS", "Ordem recebida: ${text}");
                                 onTTS(text)
                             }
                             ?.send()
@@ -158,7 +159,7 @@ class MqttManager(
         }.toString()
 
         publish(telemetryTopic, payload, qos = 2)
-        //Log.d("MQTT", "Telemetria enviada — Activity: ${data.activityState}")
+        Log.d("MQTT", "Telemetria enviada — Telemtry: ${data}")
     }
 
     fun publishNetworkStatus(

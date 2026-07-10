@@ -25,11 +25,17 @@ class SpeechManager(
     private val listener = object : RecognitionListener {
         override fun onResults(results: Bundle) {
             val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-            Log.d("SPEECH", "Ouviu: $matches")
+            //Log.d("SPEECH", "Ouviu: $matches")
 
-            val detected = matches?.any { it.contains("socorro", ignoreCase = true) } == true
+            val keywords = listOf("socorro","ajuda","mayday","guerra","emergência","ajudem-me","salvem-me")
+
+            val detected = matches?.any { result ->
+                keywords.any { keyword ->
+                    result.contains(keyword, ignoreCase = true)
+                }
+            } == true
             if (detected) {
-                Log.d("SPEECH", "SOCORRO detetado!")
+                Log.d("SPEECH", "Pedido de SOCORRO detetado!")
                 onSosDetected()
             }
 

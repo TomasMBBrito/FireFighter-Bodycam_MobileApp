@@ -346,6 +346,11 @@ class MainActivity : AppCompatActivity() {
             null
         }
 
+        android.util.Log.d(
+            "NETDEBUG",
+            "type=$networkType validated=$hasValidatedInternet upstream=$upstreamKbps signal=$signalStrength"
+        )
+
         return NetworkSnapshot(
             type = networkType,
             quality = calculateNetworkQuality(
