@@ -18,7 +18,7 @@ import java.io.IOException
 
 class FirefighterActivity : AppCompatActivity() {
 
-    private val ip = "100.126.183.52"
+    private val ip = "100.102.144.13"
     private var missionId: String = ""
     private var missionTitle: String = ""
     private var isSolo: Boolean = false

@@ -22,14 +22,7 @@ class WebRTCManager(
         private set
     //private var localAudioTrack: AudioTrack? = null
     private var videoCapturer: VideoCapturer? = null
-    private var videoSender: RtpSender? = null
     private var whipOfferSent = false
-
-    companion object {
-        const val DEFAULT_VIDEO_BITRATE_BPS = 300_000
-        const val WEAK_VIDEO_BITRATE_BPS = 150_000
-        const val GOOD_VIDEO_BITRATE_BPS = 800_000
-    }
 
     fun init() {
         PeerConnectionFactory.initialize(
@@ -68,7 +61,6 @@ class WebRTCManager(
     fun stopStream() {
         peerConnection?.close()
         peerConnection = null
-        videoSender = null
         whipOfferSent = false
     }
 
@@ -126,21 +118,12 @@ class WebRTCManager(
         )
 
         localVideoTrack?.let {
-            videoSender = peerConnection?.addTrack(it, listOf("stream0"))
-            setVideoBitrate(DEFAULT_VIDEO_BITRATE_BPS)
+            peerConnection?.addTrack(
+                it,
+                listOf("stream0")
+            )
         }
         //localAudioTrack?.let { peerConnection?.addTrack(it, listOf("stream0")) }
-    }
-
-    fun setVideoBitrate(maxBitrateBps: Int) {
-        val sender = videoSender ?: return
-        val params = sender.parameters
-
-        params.encodings.forEach { encoding ->
-            encoding.maxBitrateBps = maxBitrateBps
-        }
-
-        sender.parameters = params
     }
 
     private fun preferH264(sdp: String): String {
