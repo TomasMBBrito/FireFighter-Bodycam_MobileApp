@@ -324,71 +324,13 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun startStreamingApi(firefighterId: String, missionId: String) {
-
-        val client = OkHttpClient()
-
-        val json = JSONObject().apply {
-            put("FirefighterID", firefighterId)
-            put("MissionID", missionId)
-        }
-
-        val body = json.toString()
-            .toRequestBody("application/json".toMediaType())
-
-        val request = Request.Builder()
-            .url("http://$ip:5081/api/Mission/firefighter/start-stream")
-            .addHeader("Authorization", TokenManager.authHeader() ?: "")
-            .post(body)
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                android.util.Log.e("BODYCAM", "start stream error: ${e.message}")
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                android.util.Log.d("BODYCAM", "stream started: ${response.code}")
-            }
-        })
-    }
-
-    private fun stopStreamingApi(firefighterId: String, missionId: String) {
-
-        val client = OkHttpClient()
-
-        val json = JSONObject().apply {
-            put("FirefighterID", firefighterId)
-            put("MissionID", missionId)
-        }
-
-        val body = json.toString()
-            .toRequestBody("application/json".toMediaType())
-
-        val request = Request.Builder()
-            .url("http://$ip:5081/api/Mission/firefighter/stop-stream")
-            .addHeader("Authorization", TokenManager.authHeader() ?: "")
-            .post(body)
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                android.util.Log.e("BODYCAM", "stop stream error: ${e.message}")
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                android.util.Log.d("BODYCAM", "stream stopped: ${response.code}")
-            }
-        })
-    }
-
     private fun handleStreamStart() {
         webRtcManager.startStream()
 
         isStreaming = true
         btnStream.text = "Parar stream"
 
-        startStreamingApi(firefighterId, missionId)
+        //startStreamingApi(firefighterId, missionId)
         setOnlineStatus(true)
 
         val intent = Intent(
@@ -414,10 +356,7 @@ class MainActivity : AppCompatActivity() {
 
         btnStream.text = "Iniciar stream"
 
-        stopStreamingApi(
-            firefighterId,
-            missionId
-        )
+        //stopStreamingApi(firefighterId, missionId)
 
         setOnlineStatus(false)
 
@@ -477,7 +416,13 @@ class MainActivity : AppCompatActivity() {
     private fun setOnlineStatus(online: Boolean) {
         val client = OkHttpClient()
 
-        val body = online.toString()
+        val json = JSONObject().apply {
+            put("Online", online)
+            put("MissionID", missionId)
+            put("FirefighterID", firefighterId)
+        }
+
+        val body = json.toString()
             .toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder()
