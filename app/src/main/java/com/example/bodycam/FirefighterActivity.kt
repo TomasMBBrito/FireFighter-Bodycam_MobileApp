@@ -18,11 +18,10 @@ import java.io.IOException
 
 class FirefighterActivity : AppCompatActivity() {
 
-    private val ip = "100.102.144.13"
+    private val ip = "100.126.183.52"
     private var missionId: String = ""
     private var missionTitle: String = ""
     private var isSolo: Boolean = false
-    private lateinit var locationFinder: LocationFinder
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,9 +30,6 @@ class FirefighterActivity : AppCompatActivity() {
         missionId = intent.getStringExtra("missionId") ?: ""
         missionTitle = intent.getStringExtra("missionTitle") ?: ""
         isSolo = intent.getBooleanExtra("isSolo", false)
-
-        locationFinder = LocationFinder(this)
-        locationFinder.start()
 
         findViewById<TextView>(R.id.tvMissionTitle).text =
             if (isSolo) "Missão Solo" else missionTitle
@@ -48,60 +44,6 @@ class FirefighterActivity : AppCompatActivity() {
                }
             }
         }
-
-//        if (isSolo) {
-//            // Solo — mostra todos os firefighters
-//            fetchAllFirefighters { firefighters ->
-//                runOnUiThread {
-//                    recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
-//                        showPasswordDialog(firefighter)
-//                    }
-//                }
-//            }
-//        } else {
-//            // Missão normal — mostra só os firefighters da missão
-//            fetchMissionFirefighters { firefighters ->
-//                runOnUiThread {
-//                    recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
-//                        showPasswordDialog(firefighter)
-//                    }
-//                }
-//            }
-//        }
-    }
-
-    private fun fetchMissionFirefighters(onResult: (List<FirefighterItem>) -> Unit) {
-        val client = OkHttpClient()
-        val request = Request.Builder()
-            .url("http://$ip:5081/api/Mission/$missionId/firefighters")
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@FirefighterActivity, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string() ?: return
-                val json = JSONArray(body)
-                val list = mutableListOf<FirefighterItem>()
-                for (i in 0 until json.length()) {
-                    val obj = json.getJSONObject(i)
-                    list.add(FirefighterItem(
-                        id = obj.getString("firefighterId"),
-                        userId = obj.getString("userId"),
-                        name = obj.getString("name"),
-                        role = obj.getString("roleInMission"),
-                        username = obj.optString("username", ""),
-                        station = obj.optString("station", "Unknown"),
-                        online = obj.optBoolean("online", false)
-                    ))
-                }
-                onResult(list)
-            }
-        })
     }
 
     private fun fetchAllFirefighters(onResult: (List<FirefighterItem>) -> Unit) {
@@ -222,45 +164,43 @@ class FirefighterActivity : AppCompatActivity() {
     private fun createSoloMission(firefighter: FirefighterItem, userId: String, token: String) {
         val client = OkHttpClient()
 
-        val lat = locationFinder.currentLat
-        val lng = locationFinder.currentLng
+        LocationFinder(this).getCurrentLocationOnce { lat, lng ->
+            val payload = JSONObject().apply {
+                put("Title", firefighter.name)
+                put("Location", "Solo Mission")
+                put("Latitude", lat)
+                put("Longitude", lng)
+                put("IncidentType", "Solo")
+                put("CommanderId", userId)
+            }.toString()
 
-        val payload = JSONObject().apply {
-            put("Title", firefighter.name)
-            put("Location", "Solo Mission")
-            put("Latitude", lat)
-            put("Longitude", lng)
-            put("IncidentType", "Solo")
-            put("CommanderId", userId)
-        }.toString()
+            val request = Request.Builder()
+                .url("http://$ip:5081/api/Mission")
+                .addHeader("Authorization", "Bearer $token")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
 
-        val request = Request.Builder()
-            .url("http://$ip:5081/api/Mission")
-            .addHeader("Authorization", "Bearer $token")
-            .post(payload.toRequestBody("application/json".toMediaType()))
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@FirefighterActivity, "Erro ao criar missão", Toast.LENGTH_LONG).show()
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string() ?: return
-                if (!response.isSuccessful) {
+            client.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
                     runOnUiThread {
-                        Toast.makeText(this@FirefighterActivity, "Erro: $body", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@FirefighterActivity, "Erro ao criar missão", Toast.LENGTH_LONG).show()
                     }
-                    return
                 }
-                val json = JSONObject(body)
-                missionId = json.getString("missionId")
-                missionTitle = json.getString("title")
-                associateAndNavigate(firefighter, userId,token)
-            }
-        })
+                override fun onResponse(call: Call, response: Response) {
+                    val body = response.body?.string() ?: return
+                    if (!response.isSuccessful) {
+                        runOnUiThread {
+                            Toast.makeText(this@FirefighterActivity, "Erro: $body", Toast.LENGTH_LONG).show()
+                        }
+                        return
+                    }
+                    val json = JSONObject(body)
+                    missionId = json.getString("missionId")
+                    missionTitle = json.getString("title")
+                    associateAndNavigate(firefighter, userId, token)
+                }
+            })
+        }
     }
 
     private fun associateAndNavigate(firefighter: FirefighterItem, userId: String, token: String) {

@@ -13,15 +13,11 @@ import java.io.IOException
 
 class MissionActivity : AppCompatActivity() {
 
-    private val ip = "100.102.144.13"
-    private lateinit var locationFinder: LocationFinder
+    private val ip = "100.126.183.52"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_mission)
-
-        locationFinder = LocationFinder(this)
-        locationFinder.start()
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerMissions)
         recyclerView.layoutManager = LinearLayoutManager(this)

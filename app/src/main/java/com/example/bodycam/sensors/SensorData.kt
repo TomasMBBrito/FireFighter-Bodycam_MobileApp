@@ -17,7 +17,7 @@ data class SensorData(
 
     // Motion / Fall
     val motionLevel: Float?,
-    val isMoving: Boolean?,
+    //val isMoving: Boolean?,
     val activityState: String?,
 
     val compassBearing: Float?,

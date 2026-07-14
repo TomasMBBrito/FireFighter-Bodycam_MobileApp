@@ -37,7 +37,7 @@ class TelemetryManager(
     private val motionBuffer = ArrayDeque<Float>()
     private val bufferWindowSize = 15
 
-    private var currentlyMoving = false
+    //private var currentlyMoving = false
     private val movingEnterThreshold = 0.6f
     private val movingExitThreshold = 0.3f
 
@@ -105,15 +105,15 @@ class TelemetryManager(
         return motionBuffer.average().toFloat()
     }
 
-    private fun updateIsMoving(smoothed: Float?): Boolean? {
-        if (smoothed == null) return null
-        currentlyMoving = if (currentlyMoving) {
-            smoothed > movingExitThreshold
-        } else {
-            smoothed > movingEnterThreshold
-        }
-        return currentlyMoving
-    }
+//    private fun updateIsMoving(smoothed: Float?): Boolean? {
+//        if (smoothed == null) return null
+//        currentlyMoving = if (currentlyMoving) {
+//            smoothed > movingExitThreshold
+//        } else {
+//            smoothed > movingEnterThreshold
+//        }
+//        return currentlyMoving
+//    }
 
     private fun updateActivityState(smoothed: Float?): String? {
         if (smoothed == null) return confirmedActivityState
@@ -150,7 +150,7 @@ class TelemetryManager(
             var bearing = Math.toDegrees(orientation[0].toDouble()).toFloat()
             compassBearing = (bearing + 360f) % 360f
 
-            Log.d("Telemetry", "Bearing=$compassBearing")
+            //Log.d("Telemetry", "Bearing=$compassBearing")
         } catch (e: Exception) {
             Log.e("TelemetryManager", "Rotation vector error", e)
         }
@@ -158,7 +158,7 @@ class TelemetryManager(
 
     private fun buildPayload(): SensorData {
         val motionLevel = smoothedMotionLevel()
-        val isMoving = updateIsMoving(motionLevel)
+        //val isMoving = updateIsMoving(motionLevel)
         val activityState = updateActivityState(motionLevel)
 
         Log.d("Telemetry", "Latest HR = ${bleManager.latestHeartRate}")
@@ -171,7 +171,7 @@ class TelemetryManager(
             gyroY = gyroY,
             gyroZ = gyroZ,
             motionLevel = motionLevel,
-            isMoving = isMoving,
+            //isMoving = isMoving,
             activityState = activityState,
             gpsLat = location.currentLat,
             gpsLng = location.currentLng,
@@ -181,7 +181,7 @@ class TelemetryManager(
             heartRate = bleManager.latestHeartRate,
         )
 
-        Log.d("TelemetryManager", "Payload compassBearing: ${payload.compassBearing}")
+        //Log.d("TelemetryManager", "Payload compassBearing: ${payload.compassBearing}")
         return payload
     }
 
@@ -197,6 +197,6 @@ class TelemetryManager(
         pendingActivityState = null
         pendingActivityCount = 0
         confirmedActivityState = null
-        currentlyMoving = false
+        //currentlyMoving = false
     }
 }

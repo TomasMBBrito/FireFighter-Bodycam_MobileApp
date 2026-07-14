@@ -25,6 +25,22 @@ class LocationFinder(private val context : Context) {
     }
 
     @SuppressLint("MissingPermission")
+    fun getCurrentLocationOnce(onResult: (Double, Double) -> Unit) {
+        fusedClient.getCurrentLocation(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            null
+        ).addOnSuccessListener { location ->
+            if (location != null) {
+                currentLat = location.latitude
+                currentLng = location.longitude
+            }
+            onResult(currentLat, currentLng)
+        }.addOnFailureListener {
+            onResult(currentLat, currentLng)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
     fun start() {
         fusedClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
