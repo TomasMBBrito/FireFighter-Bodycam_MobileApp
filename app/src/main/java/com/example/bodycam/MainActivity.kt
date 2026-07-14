@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         localRenderer = findViewById(R.id.localRenderer)
         btnStream     = findViewById(R.id.btnStream)
         btnLeaveMission = findViewById(R.id.btnLeaveMission)
-        tvMotion      = findViewById(R.id.tvMotion)
+        //tvMotion      = findViewById(R.id.tvMotion)
         tvAccel       = findViewById(R.id.tvAccel)
         tvGyro        = findViewById(R.id.tvGyro)
         tvGps         = findViewById(R.id.tvGps)
@@ -402,11 +402,11 @@ class MainActivity : AppCompatActivity() {
         tvGps.setTextColor(Color.WHITE)
 
         // Motion
-        tvMotion.text = "Mov: ${if (data.isMoving == true) "Em movimento" else "Parado"} " +
-                "(${"%.1f".format(data.motionLevel ?: 0f)} m/s²)"
-        tvMotion.setTextColor(
-            if (data.isMoving == true) Color.parseColor("#FFAA00") else Color.WHITE
-        )
+//        tvMotion.text = "Mov: ${if (data.isMoving == true) "Em movimento" else "Parado"} " +
+//                "(${"%.1f".format(data.motionLevel ?: 0f)} m/s²)"
+//        tvMotion.setTextColor(
+//            if (data.isMoving == true) Color.parseColor("#FFAA00") else Color.WHITE
+//        )
 
         tvActivity.text =
             "Hr: ${data.heartRate ?: "N/A"} | " +
