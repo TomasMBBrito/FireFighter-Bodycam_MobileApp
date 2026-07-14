@@ -132,7 +132,7 @@ class MqttManager(
                 put("GyroZ", JSONObject.NULL)
 
                 put("MotionLevel", JSONObject.NULL)
-                put("IsMoving", data.isMoving)
+                //put("IsMoving", data.isMoving)
 
                 put("ActivityState", JSONObject.NULL)
                 put("CompassBearing", data.compassBearing)
@@ -146,7 +146,7 @@ class MqttManager(
                 put("GyroZ", data.gyroZ)
 
                 put("MotionLevel", data.motionLevel)
-                put("IsMoving", data.isMoving)
+                //put("IsMoving", data.isMoving)
 
                 put("ActivityState", data.activityState)
                 put("CompassBearing", data.compassBearing)

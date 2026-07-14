@@ -19,29 +19,19 @@ import java.io.IOException
 class FirefighterActivity : AppCompatActivity() {
 
     private val ip = "100.126.183.52"
-    private var missionId: String = ""
-    private var missionTitle: String = ""
-    private var isSolo: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_firefighter)
-
-        missionId = intent.getStringExtra("missionId") ?: ""
-        missionTitle = intent.getStringExtra("missionTitle") ?: ""
-        isSolo = intent.getBooleanExtra("isSolo", false)
-
-        findViewById<TextView>(R.id.tvMissionTitle).text =
-            if (isSolo) "Missão Solo" else missionTitle
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerFirefighters)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
         fetchAllFirefighters { firefighters ->
             runOnUiThread {
-               recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
+                recyclerView.adapter = FirefighterAdapter(firefighters) { firefighter ->
                     showPasswordDialog(firefighter)
-               }
+                }
             }
         }
     }
@@ -114,11 +104,9 @@ class FirefighterActivity : AppCompatActivity() {
         val client = OkHttpClient()
 
         val json = JSONObject().apply {
-            put("username",  firefighter.username)
+            put("username", firefighter.username)
             put("password", password)
         }
-
-        android.util.Log.d("LOGIN_DEBUG", "Enviando: ${json}")
 
         val body = json.toString()
             .toRequestBody("application/json; charset=utf-8".toMediaType())
@@ -137,7 +125,6 @@ class FirefighterActivity : AppCompatActivity() {
 
             override fun onResponse(call: Call, response: Response) {
                 val resBody = response.body?.string() ?: ""
-                android.util.Log.d("LOGIN_DEBUG", "Status: ${response.code}, Body: $resBody")
                 runOnUiThread {
                     when (response.code) {
                         200 -> {
@@ -145,12 +132,7 @@ class FirefighterActivity : AppCompatActivity() {
                             val userId = resJson.getString("userId")
                             val token = resJson.getString("token")
                             TokenManager.token = token
-                            //setOnlineStatus(userId, true)
-                            if (isSolo) {
-                                createSoloMission(firefighter, userId, token)
-                            } else {
-                                associateAndNavigate(firefighter, userId, token)
-                            }
+                            checkActiveMission(firefighter, userId, token)
                         }
                         401 -> Toast.makeText(this@FirefighterActivity, "Password incorreta.", Toast.LENGTH_SHORT).show()
                         404 -> Toast.makeText(this@FirefighterActivity, "Utilizador não encontrado.", Toast.LENGTH_SHORT).show()
@@ -161,102 +143,48 @@ class FirefighterActivity : AppCompatActivity() {
         })
     }
 
-    private fun createSoloMission(firefighter: FirefighterItem, userId: String, token: String) {
+    private fun checkActiveMission(firefighter: FirefighterItem, userId: String, token: String) {
         val client = OkHttpClient()
-
-        LocationFinder(this).getCurrentLocationOnce { lat, lng ->
-            val payload = JSONObject().apply {
-                put("Title", firefighter.name)
-                put("Location", "Solo Mission")
-                put("Latitude", lat)
-                put("Longitude", lng)
-                put("IncidentType", "Solo")
-                put("CommanderId", userId)
-            }.toString()
-
-            val request = Request.Builder()
-                .url("http://$ip:5081/api/Mission")
-                .addHeader("Authorization", "Bearer $token")
-                .post(payload.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    runOnUiThread {
-                        Toast.makeText(this@FirefighterActivity, "Erro ao criar missão", Toast.LENGTH_LONG).show()
-                    }
-                }
-                override fun onResponse(call: Call, response: Response) {
-                    val body = response.body?.string() ?: return
-                    if (!response.isSuccessful) {
-                        runOnUiThread {
-                            Toast.makeText(this@FirefighterActivity, "Erro: $body", Toast.LENGTH_LONG).show()
-                        }
-                        return
-                    }
-                    val json = JSONObject(body)
-                    missionId = json.getString("missionId")
-                    missionTitle = json.getString("title")
-                    associateAndNavigate(firefighter, userId, token)
-                }
-            })
-        }
-    }
-
-    private fun associateAndNavigate(firefighter: FirefighterItem, userId: String, token: String) {
-        val client = OkHttpClient()
-
-        val payload = JSONObject().apply {
-            put("MissionID", missionId)
-            put("FirefighterID", firefighter.id)
-        }.toString()
-
         val request = Request.Builder()
-            .url("http://$ip:5081/api/Mission/associate")
+            .url("http://$ip:5081/api/Mission/firefighter/${firefighter.id}/active-mission")
             .addHeader("Authorization", "Bearer $token")
-            .post(payload.toRequestBody("application/json".toMediaType()))
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                navigate(firefighter, userId)
+                // sem rede: assume sem missão, deixa o utilizador escolher/criar
+                goToMissionActivity(firefighter, userId, token, "")
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string() ?: ""
-                if (response.code == 409) {
-                    val message = try {
-                        JSONObject(body).getString("message")
-                    } catch (e: Exception) {
-                        "Already assigned to another mission."
-                    }
-                    runOnUiThread {
-                        Toast.makeText(this@FirefighterActivity, message, Toast.LENGTH_LONG).show()
-                    }
-                    return
+                val existingMissionId = if (response.code == 200) {
+                    val body = response.body?.string() ?: "{}"
+                    JSONObject(body).optString("missionId", "")
+                } else {
+                    "" // 404 -> não tem missão ativa
                 }
-                if (!response.isSuccessful) {
-                    runOnUiThread {
-                        Toast.makeText(this@FirefighterActivity, "Erro (${response.code})", Toast.LENGTH_LONG).show()
-                    }
-                    return
-                }
-                navigate(firefighter, userId)
+                goToMissionActivity(firefighter, userId, token, existingMissionId)
             }
         })
     }
 
-    private fun navigate(firefighter: FirefighterItem, userId: String) {
+    private fun goToMissionActivity(
+        firefighter: FirefighterItem,
+        userId: String,
+        token: String,
+        existingMissionId: String
+    ) {
         runOnUiThread {
-            val intent = Intent(this, MainActivity::class.java).apply {
+            val intent = Intent(this, MissionActivity::class.java).apply {
                 putExtra("firefighterId", firefighter.id)
                 putExtra("firefighterName", firefighter.name)
-                putExtra("missionId", missionId)
-                putExtra("missionTitle", missionTitle)
                 putExtra("role", firefighter.role)
                 putExtra("userId", userId)
+                putExtra("token", token)
+                putExtra("existingMissionId", existingMissionId)
             }
             startActivity(intent)
+            finish()
         }
     }
 }

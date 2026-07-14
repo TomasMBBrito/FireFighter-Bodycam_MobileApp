@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var btnLeaveMission: Button
     private lateinit var localRenderer: org.webrtc.SurfaceViewRenderer
-    private lateinit var tvMotion: TextView
     private lateinit var tvAccel: TextView
     private lateinit var tvGyro: TextView
     private lateinit var tvGps: TextView
@@ -59,6 +58,8 @@ class MainActivity : AppCompatActivity() {
     private var isStreaming = false
 
     private lateinit var firefighterId: String
+
+    private lateinit var firefighterName: String
     private lateinit var missionId: String
     private lateinit var userId : String
     private lateinit var role : String
@@ -119,6 +120,7 @@ class MainActivity : AppCompatActivity() {
         tvActivity    = findViewById(R.id.tvActivity)
 
         firefighterId = intent.getStringExtra("firefighterId") ?: "b0000001-0000-0000-0000-000000000006"
+        firefighterName = intent.getStringExtra("firefighterName") ?: ""
         missionId     = intent.getStringExtra("missionId")     ?: "a0000001-0000-0000-0000-000000000003"
         userId = intent.getStringExtra("userId") ?: ""
         role = intent.getStringExtra("role") ?: "Firefighter"
@@ -308,13 +310,13 @@ class MainActivity : AppCompatActivity() {
                     if (isStreaming)
                         handleStreamStop()
 
-                    val intent =
-                        Intent(this@MainActivity,
-                            MissionActivity::class.java)
-
+                    val intent = Intent(this@MainActivity, MissionActivity::class.java)
                     intent.putExtra("firefighterId", firefighterId)
+                    intent.putExtra("firefighterName", firefighterName)
                     intent.putExtra("userId", userId)
                     intent.putExtra("role", role)
+                    intent.putExtra("token", TokenManager.token ?: "")
+                    intent.putExtra("existingMissionId", "")//visto que acabou de se desassociar, o existingMissionid passa a ser nulo
 
                     startActivity(intent)
 
