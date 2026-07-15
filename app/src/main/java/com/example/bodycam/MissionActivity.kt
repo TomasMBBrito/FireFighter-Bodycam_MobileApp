@@ -41,26 +41,15 @@ class MissionActivity : AppCompatActivity() {
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerMissions)
         recyclerView.layoutManager = LinearLayoutManager(this)
         val btnSoloMission = findViewById<Button>(R.id.btnSoloMission)
-        val tvMissionTitle = findViewById<TextView>(R.id.tvMissionTitle)
+        //val tvMissionTitle = findViewById<TextView>(R.id.tvMissionTitle)
 
         fetchActiveMissions { missions ->
             runOnUiThread {
-                if (existingMissionId.isNotEmpty()) {
-                    // já associado -> mostra só essa missão, sem botão solo
-                    val onlyMission = missions.filter { it.id == existingMissionId }
-                    tvMissionTitle.text = "Já associado a uma missão"
-                    recyclerView.adapter = MissionAdapter(onlyMission) { mission ->
-                        navigate(mission.id, mission.title)
-                    }
-                    btnSoloMission.visibility = View.GONE
-                } else {
-                    // sem missão -> mostra todas + solo
-                    recyclerView.adapter = MissionAdapter(missions) { mission ->
-                        associateAndNavigate(mission.id, mission.title)
-                    }
-                    btnSoloMission.visibility = View.VISIBLE
-                    btnSoloMission.setOnClickListener { createSoloMission() }
+                recyclerView.adapter = MissionAdapter(missions) { mission ->
+                    associateAndNavigate(mission.id, mission.title)
                 }
+                btnSoloMission.visibility = View.VISIBLE
+                btnSoloMission.setOnClickListener { createSoloMission() }
             }
         }
     }

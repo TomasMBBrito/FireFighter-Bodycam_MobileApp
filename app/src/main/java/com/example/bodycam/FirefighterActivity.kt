@@ -175,17 +175,32 @@ class FirefighterActivity : AppCompatActivity() {
         existingMissionId: String
     ) {
         runOnUiThread {
-            val intent = Intent(this, MissionActivity::class.java).apply {
-                putExtra("firefighterId", firefighter.id)
-                putExtra("firefighterName", firefighter.name)
-                putExtra("role", firefighter.role)
-                putExtra("userId", userId)
-                putExtra("token", token)
-                putExtra("existingMissionId", existingMissionId)
+            if (existingMissionId.isNotEmpty()) {
+                // já associado a uma missão -> MainActivity
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    putExtra("firefighterId", firefighter.id)
+                    putExtra("firefighterName", firefighter.name)
+                    putExtra("missionId", existingMissionId)
+                    putExtra("role", firefighter.role)
+                    putExtra("userId", userId)
+                }
+                startActivity(intent)
+                finish()
+            } else {
+                // sem missão ativa -> segue o fluxo normal
+                val intent = Intent(this, MissionActivity::class.java).apply {
+                    putExtra("firefighterId", firefighter.id)
+                    putExtra("firefighterName", firefighter.name)
+                    putExtra("role", firefighter.role)
+                    putExtra("userId", userId)
+                    putExtra("token", token)
+                    putExtra("existingMissionId", existingMissionId)
+                }
+                startActivity(intent)
+                finish()
             }
-            startActivity(intent)
-            finish()
         }
+
     }
 }
 
