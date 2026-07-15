@@ -20,6 +20,10 @@ class SpeechManager(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-PT")
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 5000L)
     }
 
     private val listener = object : RecognitionListener {
@@ -75,7 +79,7 @@ class SpeechManager(
                 recognizer?.setRecognitionListener(listener)
                 recognizer?.startListening(intent)
             }
-        }, 300)
+        }, 100)
     }
 
     fun stop() {
