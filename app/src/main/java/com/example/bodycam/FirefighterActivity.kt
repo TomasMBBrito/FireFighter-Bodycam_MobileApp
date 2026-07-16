@@ -153,17 +153,23 @@ class FirefighterActivity : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 // sem rede: assume sem missão, deixa o utilizador escolher/criar
-                goToMissionActivity(firefighter, userId, token, "")
+                goToMissionActivity(firefighter, userId, token, "","")
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val existingMissionId = if (response.code == 200) {
+                val existingMissionId: String
+                val incidentType: String
+
+                if (response.code == 200) {
                     val body = response.body?.string() ?: "{}"
-                    JSONObject(body).optString("missionId", "")
+                    val json = JSONObject(body)
+                    existingMissionId = json.optString("missionId", "")
+                    incidentType = json.optString("incidentType", "")
                 } else {
-                    "" // 404 -> não tem missão ativa
+                    existingMissionId = ""
+                    incidentType = ""
                 }
-                goToMissionActivity(firefighter, userId, token, existingMissionId)
+                goToMissionActivity(firefighter, userId, token, existingMissionId,incidentType)
             }
         })
     }
@@ -172,7 +178,8 @@ class FirefighterActivity : AppCompatActivity() {
         firefighter: FirefighterItem,
         userId: String,
         token: String,
-        existingMissionId: String
+        existingMissionId: String,
+        incidentType: String = ""
     ) {
         runOnUiThread {
             if (existingMissionId.isNotEmpty()) {
@@ -183,6 +190,7 @@ class FirefighterActivity : AppCompatActivity() {
                     putExtra("missionId", existingMissionId)
                     putExtra("role", firefighter.role)
                     putExtra("userId", userId)
+                    putExtra("incidentType", incidentType)
                 }
                 startActivity(intent)
                 finish()

@@ -46,7 +46,7 @@ class MissionActivity : AppCompatActivity() {
         fetchActiveMissions { missions ->
             runOnUiThread {
                 recyclerView.adapter = MissionAdapter(missions) { mission ->
-                    associateAndNavigate(mission.id, mission.title)
+                    associateAndNavigate(mission.id, mission.title, mission.incidentType)
                 }
                 btnSoloMission.visibility = View.VISIBLE
                 btnSoloMission.setOnClickListener { createSoloMission() }
@@ -76,7 +76,8 @@ class MissionActivity : AppCompatActivity() {
                     list.add(MissionItem(
                         obj.getString("missionId"),
                         obj.getString("title"),
-                        obj.getString("location")
+                        obj.getString("location"),
+                        obj.optString("incidentType", "")
                     ))
                 }
                 onResult(list)
@@ -121,13 +122,13 @@ class MissionActivity : AppCompatActivity() {
                     val json = JSONObject(body)
                     val newMissionId = json.getString("missionId")
                     val newTitle = json.getString("title")
-                    associateAndNavigate(newMissionId, newTitle)
+                    associateAndNavigate(newMissionId, newTitle,"Solo")
                 }
             })
         }
     }
 
-    private fun associateAndNavigate(missionId: String, missionTitle: String) {
+    private fun associateAndNavigate(missionId: String, missionTitle: String, incidentType: String = "") {
         val client = OkHttpClient()
 
         val payload = JSONObject().apply {
@@ -143,7 +144,7 @@ class MissionActivity : AppCompatActivity() {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                navigate(missionId, missionTitle)
+                navigate(missionId, missionTitle, incidentType)
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -165,12 +166,12 @@ class MissionActivity : AppCompatActivity() {
                     }
                     return
                 }
-                navigate(missionId, missionTitle)
+                navigate(missionId, missionTitle, incidentType)
             }
         })
     }
 
-    private fun navigate(missionId: String, missionTitle: String) {
+    private fun navigate(missionId: String, missionTitle: String, incidentType: String = "") {
         runOnUiThread {
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra("firefighterId", firefighterId)
@@ -179,6 +180,7 @@ class MissionActivity : AppCompatActivity() {
                 putExtra("missionTitle", missionTitle)
                 putExtra("role", role)
                 putExtra("userId", userId)
+                putExtra("incidentType", incidentType)
             }
             startActivity(intent)
             finish()
@@ -186,4 +188,4 @@ class MissionActivity : AppCompatActivity() {
     }
 }
 
-data class MissionItem(val id: String, val title: String, val location: String)
+data class MissionItem(val id: String, val title: String, val location: String, val incidentType: String = "")

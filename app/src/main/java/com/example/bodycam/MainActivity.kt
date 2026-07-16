@@ -64,6 +64,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userId : String
     private lateinit var role : String
 
+    private lateinit var incidentType: String
+
     private val ip = "100.126.183.52"
 
     private val requestPermissions =
@@ -124,6 +126,7 @@ class MainActivity : AppCompatActivity() {
         missionId     = intent.getStringExtra("missionId")     ?: "a0000001-0000-0000-0000-000000000003"
         userId = intent.getStringExtra("userId") ?: ""
         role = intent.getStringExtra("role") ?: "Firefighter"
+        incidentType = intent.getStringExtra("incidentType") ?: ""
 
         val isVehicle = role.equals("Vehicle", ignoreCase = true)
 
@@ -304,23 +307,30 @@ class MainActivity : AppCompatActivity() {
 
                     return
                 }
+                val proceed = {
+                    runOnUiThread {
 
-                runOnUiThread {
+                        if (isStreaming)
+                            handleStreamStop()
 
-                    if (isStreaming)
-                        handleStreamStop()
+                        val intent = Intent(this@MainActivity, MissionActivity::class.java)
+                        intent.putExtra("firefighterId", firefighterId)
+                        intent.putExtra("firefighterName", firefighterName)
+                        intent.putExtra("userId", userId)
+                        intent.putExtra("role", role)
+                        intent.putExtra("token", TokenManager.token ?: "")
+                        intent.putExtra("existingMissionId", "")//visto que acabou de se desassociar, o existingMissionid passa a ser nulo
 
-                    val intent = Intent(this@MainActivity, MissionActivity::class.java)
-                    intent.putExtra("firefighterId", firefighterId)
-                    intent.putExtra("firefighterName", firefighterName)
-                    intent.putExtra("userId", userId)
-                    intent.putExtra("role", role)
-                    intent.putExtra("token", TokenManager.token ?: "")
-                    intent.putExtra("existingMissionId", "")//visto que acabou de se desassociar, o existingMissionid passa a ser nulo
+                        startActivity(intent)
 
-                    startActivity(intent)
+                        finish()
+                    }
+                }
 
-                    finish()
+                if (incidentType.equals("Solo", ignoreCase = true)) {
+                    completeMission { proceed() }
+                } else {
+                    proceed()
                 }
             }
         })
@@ -413,6 +423,34 @@ class MainActivity : AppCompatActivity() {
         tvActivity.text =
             "Hr: ${data.heartRate ?: "N/A"} | " +
                     "Temp: ${data.bodyTemperature?.let { "%.1f°C".format(it) } ?: "N/A"}"
+    }
+
+    private fun completeMission(onDone: () -> Unit) {
+        val client = OkHttpClient()
+
+        val request = Request.Builder()
+            .url("http://$ip:5081/api/Mission/$missionId/completed")
+            .addHeader("Authorization", TokenManager.authHeader() ?: "")
+            .put("".toRequestBody(null))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "Erro ao completar missão", Toast.LENGTH_LONG).show()
+                }
+                onDone()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (!response.isSuccessful) {
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "Erro ao completar missão (${response.code})", Toast.LENGTH_LONG).show()
+                    }
+                }
+                onDone()
+            }
+        })
     }
 
     private fun setOnlineStatus(online: Boolean) {
