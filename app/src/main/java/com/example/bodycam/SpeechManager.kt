@@ -31,7 +31,7 @@ class SpeechManager(
             val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             //Log.d("SPEECH", "Ouviu: $matches")
 
-            val keywords = listOf("socorro","ajuda","mayday","guerra","emergência","ajudem-me","salvem-me")
+            val keywords = listOf("socorro","ajuda","guerra")
 
             val detected = matches?.any { result ->
                 keywords.any { keyword ->
